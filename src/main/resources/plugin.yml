@@ -16,3 +16,5 @@ commands:
 permissions:
   clashmc.admin:
    description: enable admin features
+  clashmc.admin.replay:
+   description: view all replays without time limit

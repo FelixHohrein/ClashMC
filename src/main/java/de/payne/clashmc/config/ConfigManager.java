@@ -4,6 +4,9 @@ import de.payne.clashmc.ClashMC;
 import de.payne.clashmc.utils.LogUtil;
 import org.bukkit.configuration.file.FileConfiguration;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Zentraler Manager für alle Config-Werte.
  * Lädt Werte aus config.yml und bietet typsichere Getter-Methoden.
@@ -473,6 +476,96 @@ public class ConfigManager {
 
     public boolean isCacheSystemEnabled() {
         return config.getBoolean("features.cache-system", true);
+    }
+
+    // ====================================
+    // REPLAY-SYSTEM
+    // ====================================
+
+    public boolean isReplaySystemFullyEnabled() {
+        return config.getBoolean("replay-system.enabled", true);
+    }
+
+    public int getReplayPlayerRetentionDays() {
+        return config.getInt("replay-system.player-retention-days", 7);
+    }
+
+    public long getReplayMovementTrackingInterval() {
+        return config.getLong("replay-system.movement-tracking-interval", 10);
+    }
+
+    public String getReplayWorldName() {
+        return config.getString("replay-system.world-name", "Replays");
+    }
+
+    public int getReplayInstanceSlotsX() {
+        return config.getInt("replay-system.instance.slots-x", 10);
+    }
+
+    public int getReplayInstanceSlotsZ() {
+        return config.getInt("replay-system.instance.slots-z", 10);
+    }
+
+    public int getReplayInstanceSpacing() {
+        return config.getInt("replay-system.instance.spacing", 128);
+    }
+
+    public int getReplayInstanceSpawnHeight() {
+        return config.getInt("replay-system.instance.spawn-height", 100);
+    }
+
+    public int getReplayCameraSkyViewHeight() {
+        return config.getInt("replay-system.camera.sky-view-height", 30);
+    }
+
+    public int getReplayCameraSkyViewPitch() {
+        return config.getInt("replay-system.camera.sky-view-pitch", 70);
+    }
+
+    public int getReplayCameraSkyViewYaw() {
+        return config.getInt("replay-system.camera.sky-view-yaw", 45);
+    }
+
+    public int getReplayCameraFollowDistance() {
+        return config.getInt("replay-system.camera.follow-distance", 3);
+    }
+
+    public int getReplayCameraFollowHeight() {
+        return config.getInt("replay-system.camera.follow-height", 2);
+    }
+
+    public boolean getReplayNPCVisible() {
+        return config.getBoolean("replay-system.npc.visible", true);
+    }
+
+    public boolean getReplayNPCShowName() {
+        return config.getBoolean("replay-system.npc.show-name", true);
+    }
+
+    public boolean getReplayNPCHasGravity() {
+        return config.getBoolean("replay-system.npc.has-gravity", false);
+    }
+
+    public boolean getReplayNPCHasArms() {
+        return config.getBoolean("replay-system.npc.has-arms", true);
+    }
+
+    public boolean getReplayNPCShowBasePlate() {
+        return config.getBoolean("replay-system.npc.show-base-plate", false);
+    }
+
+    public float getReplayDefaultSpeed() {
+        return (float) config.getDouble("replay-system.default-speed", 1.0);
+    }
+
+    public List<Float> getReplaySpeedOptions() {
+        List<Float> speeds = new ArrayList<>();
+        for (Object obj : config.getList("replay-system.speed-options", List.of(0.5, 1.0, 2.0, 4.0, 8.0))) {
+            if (obj instanceof Number) {
+                speeds.add(((Number) obj).floatValue());
+            }
+        }
+        return speeds;
     }
 
     /**
