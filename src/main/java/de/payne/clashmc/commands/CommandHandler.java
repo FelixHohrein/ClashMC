@@ -70,6 +70,10 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 			l.add("setspawn");
 			l.add("upgrade");
 			l.add("savemine");
+			l.add("reload");
+			l.add("stats");
+			l.add("addcoins");
+			l.add("mine");
 		}
 		
 		l.add("info");

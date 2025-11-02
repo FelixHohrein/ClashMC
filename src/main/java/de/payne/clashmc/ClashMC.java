@@ -9,10 +9,12 @@ import de.payne.clashmc.attacks.AttackManager;
 import de.payne.clashmc.attacks.equipment.EquipmentManager;
 import de.payne.clashmc.cache.CacheManager;
 import de.payne.clashmc.commands.ClashCommand;
+import de.payne.clashmc.config.ConfigManager;
 import de.payne.clashmc.commands.CommandHandler;
 import de.payne.clashmc.commands.subcommands.AddCoinsCommand;
 import de.payne.clashmc.commands.subcommands.InfoCommand;
 import de.payne.clashmc.commands.subcommands.MineSessionCommand;
+import de.payne.clashmc.commands.subcommands.ReloadCommand;
 import de.payne.clashmc.commands.subcommands.ResetCommand;
 import de.payne.clashmc.commands.subcommands.SaveMineCommand;
 import de.payne.clashmc.commands.subcommands.SaveSchematicCommand;
@@ -46,6 +48,8 @@ import lombok.Getter;
 public class ClashMC extends JavaPlugin {
 
 	@Getter
+	private ConfigManager configManager;
+	@Getter
 	private MySqlDatabase database;
 	@Getter
 	private DatabaseManager databaseManager;
@@ -77,6 +81,13 @@ public class ClashMC extends JavaPlugin {
 	
 	@Override
 	public void onEnable() {
+		// Config als erstes laden
+		this.configManager = new ConfigManager(this);
+		this.configManager.validateConfig();
+		getLogger().info("===========================================");
+		getLogger().info("ClashMC wird geladen...");
+		getLogger().info("===========================================");
+		
 		this.database = new MySqlDatabase(this);
         this.database.openConnection();
         this.database.keepAlive();
@@ -163,6 +174,7 @@ public class ClashMC extends JavaPlugin {
 			handler.register("savemine", new SaveMineCommand(this.mineSchematicManager));
 			handler.register("mine", new MineSessionCommand(this.mineManager));
 			handler.register("stats", new StatsCommand());
+			handler.register("reload", new ReloadCommand(this));
 		}
 		
 	}

@@ -149,14 +149,9 @@ public class UpgradeShopMenu implements InventoryHolder {
     
     /**
      * Calculate upgrade costs for a specific level
-     * (Moved from ResourceManager to avoid creating unnecessary instances)
      */
     private long calculateUpgradeCosts(int level) {
-        long baseCost = 1000L;
-        long linearFactor = 500L;
-        double progressiveFactor = 30.0;
-        double cost = baseCost + linearFactor * level + progressiveFactor * Math.pow(level, 1.5);
-        return (long) cost;
+        return ClashMC.getInstance().getConfigManager().calculateVillageUpgradeCost(level);
     }
 
     public int getPage() {

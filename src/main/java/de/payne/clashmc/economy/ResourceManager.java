@@ -184,15 +184,8 @@ public class ResourceManager {
     }
     
     public long getUpgradeCosts(int level) {
-        // Parameter der Kostenformel
-        long baseCost = 1000L;
-        long linearFactor = 500L;
-        double progressiveFactor = 30.0;
-
-        // Kosten berechnen: base + linear*L + progressive*L^(1.5)
-        double cost = baseCost + linearFactor * level + progressiveFactor * Math.pow(level, 1.5);
-
-        return (long) cost;
+        // Kosten aus Config laden
+        return ClashMC.getInstance().getConfigManager().calculateVillageUpgradeCost(level);
     }
     
     public long calculateUpgradeCost(Player player) {
