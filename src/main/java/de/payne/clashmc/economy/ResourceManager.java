@@ -73,6 +73,8 @@ public class ResourceManager {
         try {
             this.database.resources().updateClashCoins(kingId, newBalance);
             this.database.resources().updateCollectorTimestamp(kingId, now);
+            // Invalidate cache after update
+            ClashMC.getInstance().getCacheManager().invalidateResources(uuid);
             player.sendMessage("§a+" + collectedCoins + " Clash Coins gesammelt!");
         } catch (SQLException e) {
             LogUtil.logError(ClashMC.getInstance(), "Fehler beim Aktualisieren der Clash Coins: " + e.getMessage());
@@ -98,6 +100,8 @@ public class ResourceManager {
         
         try {
             this.database.resources().updateClashCoins(kingId, newBalance);
+            // Invalidate cache after update
+            ClashMC.getInstance().getCacheManager().invalidateResources(uuid);
             player.sendMessage("§7Dir wurden §e" + amount + " Clash-Coins §7abgezogen. Neuer Kontostand: §e" + newBalance + " Clash-Coins§7.");
             return true;
         } catch (SQLException e) {
@@ -124,6 +128,8 @@ public class ResourceManager {
         
         try {
             this.database.resources().updateKingCoins(kingId, newBalance);
+            // Invalidate cache after update
+            ClashMC.getInstance().getCacheManager().invalidateResources(uuid);
             player.sendMessage("§7Dir wurden §e" + amount + " King-Coins §7abgezogen. Neuer Kontostand: §e" + newBalance + " King-Coins§7.");
             return true;
         } catch (SQLException e) {
@@ -144,6 +150,8 @@ public class ResourceManager {
         
         try {
             this.database.resources().updateClashCoins(kingId, newBalance);
+            // Invalidate cache after update
+            ClashMC.getInstance().getCacheManager().invalidateResources(uuid);
             player.sendMessage("§7Dir wurden §e" + amount + " Clash-Coins §7hinzugefügt. Neuer Kontostand: §e" + newBalance + " Clash-Coins§7.");
             return true;
         } catch (SQLException e) {
@@ -164,6 +172,8 @@ public class ResourceManager {
                 
         try {
             this.database.resources().updateKingCoins(kingId, newBalance);
+            // Invalidate cache after update
+            ClashMC.getInstance().getCacheManager().invalidateResources(uuid);
             player.sendMessage("§7Dir wurden §e" + amount + " King-Coins §7hinzugefügt. Neuer Kontostand: §e" + newBalance + " King-Coins§7.");
             return true;
         } catch (SQLException e) {

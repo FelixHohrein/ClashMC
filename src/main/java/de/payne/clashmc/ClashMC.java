@@ -7,6 +7,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import de.payne.clashmc.attacks.AttackManager;
 import de.payne.clashmc.attacks.equipment.EquipmentManager;
+import de.payne.clashmc.cache.CacheManager;
 import de.payne.clashmc.commands.ClashCommand;
 import de.payne.clashmc.commands.CommandHandler;
 import de.payne.clashmc.commands.subcommands.AddCoinsCommand;
@@ -15,6 +16,7 @@ import de.payne.clashmc.commands.subcommands.MineSessionCommand;
 import de.payne.clashmc.commands.subcommands.ResetCommand;
 import de.payne.clashmc.commands.subcommands.SaveMineCommand;
 import de.payne.clashmc.commands.subcommands.SaveSchematicCommand;
+import de.payne.clashmc.commands.subcommands.StatsCommand;
 import de.payne.clashmc.commands.subcommands.TopCommand;
 import de.payne.clashmc.commands.subcommands.UpgradeCommand;
 import de.payne.clashmc.database.DatabaseManager;
@@ -48,6 +50,8 @@ public class ClashMC extends JavaPlugin {
 	@Getter
 	private DatabaseManager databaseManager;
 	@Getter
+	private CacheManager cacheManager;
+	@Getter
     private VillageDataHandler villageDataHandler;
 	@Getter
 	private SchematicManager schematicManager;
@@ -77,14 +81,24 @@ public class ClashMC extends JavaPlugin {
         this.database.openConnection();
         this.database.keepAlive();
         
-        this.databaseManager = new DatabaseManager(this.database.getConnection());
+        this.databaseManager = new DatabaseManager(this.database);
         
-        this.migrationManager = new MigrationManager(this.databaseManager.getConnection(), this.getLogger());
-        if(this.database.isConnected()) {
-            this.migrationManager.migrate();
-        } else {
-            getLogger().severe("Datenbankverbindung ist fehlgeschlagen!");
+        try {
+            this.migrationManager = new MigrationManager(this.databaseManager.getConnection(), this.getLogger());
+            if(this.database.isConnected()) {
+                this.migrationManager.migrate();
+            } else {
+                getLogger().severe("Datenbankverbindung ist fehlgeschlagen!");
+            }
+        } catch (Exception e) {
+            getLogger().severe("Fehler beim Initialisieren der Migrations: " + e.getMessage());
+            e.printStackTrace();
         }
+        
+        // Initialize Cache Manager
+        this.cacheManager = new CacheManager(this);
+        getLogger().info("Cache-Manager initialisiert");
+        
         this.villageDataHandler = new VillageDataHandler(this);
         this.schematicManager = new SchematicManager(this);
         this.villageAllocator = new VillageAllocator(villageDataHandler, this.getServer().getWorld("clash")); // oder entsprechende Welt
@@ -148,7 +162,7 @@ public class ClashMC extends JavaPlugin {
 			handler.register("addcoins", new AddCoinsCommand());
 			handler.register("savemine", new SaveMineCommand(this.mineSchematicManager));
 			handler.register("mine", new MineSessionCommand(this.mineManager));
-
+			handler.register("stats", new StatsCommand());
 		}
 		
 	}

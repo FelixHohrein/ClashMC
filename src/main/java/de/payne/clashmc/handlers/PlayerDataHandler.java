@@ -89,6 +89,8 @@ public class PlayerDataHandler {
             }
 
             int newLevel = villageDB.getVillageLevel(this.kingId);
+            // Invalidate cache after upgrade
+            ClashMC.getInstance().getCacheManager().invalidateVillageLevel(this.kingId);
             this.builder.upgradeVillage(player, newLevel);
         } catch (SQLException e) {
             LogUtil.logError(ClashMC.getInstance(), "Fehler beim Upgraden des Dorfes: " + e.getMessage());
@@ -116,6 +118,9 @@ public class PlayerDataHandler {
             }
 
             villageDB.resetVillage(this.kingId);
+            // Invalidate cache after reset
+            ClashMC.getInstance().getCacheManager().invalidateVillageLevel(this.kingId);
+            ClashMC.getInstance().getCacheManager().invalidateResources(uuid);
             player.sendMessage("§aDein Dorf wurde zurückgesetzt.");
             this.builder.buildVillage(player, this.villageDB.getVillageLevel(this.kingId));
         } catch (SQLException e) {

@@ -1,14 +1,13 @@
 package de.payne.clashmc.database;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 import de.payne.clashmc.database.modules.*;
-import lombok.Getter;
 
 public class DatabaseManager {
 
-	@Getter
-	private final Connection connection;
+	private final MySqlDatabase database;
 	
     private final PlayerDatabase playerDB;
     private final VillageDatabase villageDB;
@@ -16,14 +15,27 @@ public class DatabaseManager {
     private final MineDatabase mineDatabase;
     private final AttackDatabase attackDatabase;
 
-    public DatabaseManager(Connection connection) {
-    	this.connection = connection;
-        this.playerDB = new PlayerDatabase(connection);
-        this.villageDB = new VillageDatabase(connection);
-        this.resourcesDB = new PlayerResourcesDatabase(connection);
-        this.mineDatabase = new MineDatabase(connection);
-        this.attackDatabase = new AttackDatabase(connection);
-
+    public DatabaseManager(MySqlDatabase database) {
+        this.database = database;
+        
+        try {
+            Connection connection = database.getConnection();
+            this.playerDB = new PlayerDatabase(connection);
+            this.villageDB = new VillageDatabase(connection);
+            this.resourcesDB = new PlayerResourcesDatabase(connection);
+            this.mineDatabase = new MineDatabase(connection);
+            this.attackDatabase = new AttackDatabase(connection);
+        } catch (SQLException e) {
+            throw new RuntimeException("Fehler beim Initialisieren des DatabaseManagers: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Gibt eine Connection aus dem Pool zurück
+     * HikariCP gibt automatisch eine Connection aus dem Pool
+     */
+    public Connection getConnection() throws SQLException {
+        return database.getConnection();
     }
 
     public PlayerDatabase players() { 

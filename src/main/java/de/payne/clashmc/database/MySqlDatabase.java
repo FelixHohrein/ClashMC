@@ -1,18 +1,18 @@
 package de.payne.clashmc.database;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import de.payne.clashmc.database.migrations.MigrationManager;
 import de.payne.clashmc.files.DatabaseHandler;
 
-import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class MySqlDatabase extends DatabaseHandler {
 
-    private Connection connection;
+    private HikariDataSource dataSource;
     private final Plugin plugin;
 
     public MySqlDatabase(final Plugin plugin) {
@@ -20,77 +20,128 @@ public class MySqlDatabase extends DatabaseHandler {
         this.plugin = plugin;
     }
 
-
-    // Öffnet eine neue Verbindung, falls keine aktive besteht und Verbindungen erlaubt sind.
-
+    /**
+     * Öffnet eine neue Verbindung mit HikariCP Connection Pool
+     */
     public void openConnection() {
-        if (!super.isConnectionAllowed()) return;
-        if (isConnected()) return;
+        if (!super.isConnectionAllowed()) {
+            plugin.getLogger().warning("Datenbankverbindung ist nicht erlaubt!");
+            return;
+        }
+        
+        if (isConnected()) {
+            plugin.getLogger().info("Datenbankverbindung ist bereits aktiv.");
+            return;
+        }
 
         try {
-            this.connection = DriverManager.getConnection(
-                "jdbc:mysql://" + super.getHost() + ":" + super.getPort() + "/" + super.getDatabase()
-                + "?autoReconnect=true&useSSL=false&serverTimezone=UTC",
-                super.getUsername(), super.getPassword()
-            );
-            this.plugin.getLogger().info("Verbindung zur Datenbank hergestellt!");
+            HikariConfig config = new HikariConfig();
+            
+            // JDBC URL
+            String jdbcUrl = "jdbc:mysql://" + super.getHost() + ":" + super.getPort() + "/" + super.getDatabase()
+                + "?autoReconnect=true&useSSL=false&serverTimezone=UTC&characterEncoding=utf8";
+            
+            config.setJdbcUrl(jdbcUrl);
+            config.setUsername(super.getUsername());
+            config.setPassword(super.getPassword());
+            
+            // HikariCP Performance-Optimierungen
+            config.setMaximumPoolSize(10); // Max 10 Connections im Pool
+            config.setMinimumIdle(2); // Min 2 idle Connections
+            config.setConnectionTimeout(30000); // 30 Sekunden Timeout
+            config.setIdleTimeout(600000); // 10 Minuten idle timeout
+            config.setMaxLifetime(1800000); // 30 Minuten max lifetime
+            config.setLeakDetectionThreshold(60000); // 60 Sekunden leak detection
+            
+            // Connection Pool Settings
+            config.setPoolName("ClashMC-HikariPool");
+            config.addDataSourceProperty("cachePrepStmts", "true");
+            config.addDataSourceProperty("prepStmtCacheSize", "250");
+            config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+            config.addDataSourceProperty("useServerPrepStmts", "true");
+            config.addDataSourceProperty("useLocalSessionState", "true");
+            config.addDataSourceProperty("rewriteBatchedStatements", "true");
+            config.addDataSourceProperty("cacheResultSetMetadata", "true");
+            config.addDataSourceProperty("cacheServerConfiguration", "true");
+            config.addDataSourceProperty("elideSetAutoCommits", "true");
+            config.addDataSourceProperty("maintainTimeStats", "false");
+            
+            this.dataSource = new HikariDataSource(config);
+            this.plugin.getLogger().info("HikariCP Connection Pool erfolgreich initialisiert!");
+            this.plugin.getLogger().info("  -> Max Pool Size: " + config.getMaximumPoolSize());
+            this.plugin.getLogger().info("  -> Min Idle: " + config.getMinimumIdle());
 
-            new MigrationManager(connection, this.plugin.getLogger()).migrate();
+            // Führe Migrations aus
+            new MigrationManager(getConnection(), this.plugin.getLogger()).migrate();
 
         } catch (SQLException e) {
-            this.plugin.getLogger().severe("Verbindung zur Datenbank fehlgeschlagen! : " + e.getMessage());
+            this.plugin.getLogger().severe("Fehler beim Initialisieren des Connection Pools: " + e.getMessage());
+            e.printStackTrace();
+        } catch (Exception e) {
+            this.plugin.getLogger().severe("Unerwarteter Fehler bei der Datenbankverbindung: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    // Reconnect-Handling & Health Check
+    /**
+     * Keepalive ist mit HikariCP nicht mehr nötig - der Pool managed das automatisch
+     */
     public void keepAlive() {
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this.plugin, () -> {
-            try {
-                if (connection == null || connection.isClosed()) {
-                    openConnection();
-                } else if (!connection.isValid(2)) {
-                    closeConnection();
-                    openConnection();
-                }
-            } catch (SQLException e) {
-                this.plugin.getLogger().warning("[DB] Verbindung verloren. Neuer Versuch...");
-                openConnection();
-            }
-        }, 20L * 60, 20L * 60); // alle 60 Sekunden prüfen
+        // HikariCP verwaltet Connections automatisch
+        // Diese Methode wird beibehalten für Kompatibilität, macht aber nichts mehr
+        plugin.getLogger().info("HikariCP Connection Pool ist aktiv - automatisches Keep-Alive ist aktiviert");
     }
 
-    
-    // Schliesst die aktive Verbindung.
+    /**
+     * Schließt den Connection Pool und alle Connections
+     */
     public void closeConnection() {
-        if (!isConnected()) return;
+        if (!isConnected()) {
+            return;
+        }
 
         try {
-            connection.close();
-            connection = null;
-            plugin.getLogger().info("Datenbankverbindung geschlossen.");
-        } catch (SQLException e) {
-            plugin.getLogger().severe("Fehler beim Schließen der Datenbankverbindung: " + e.getMessage());
+            if (dataSource != null && !dataSource.isClosed()) {
+                dataSource.close();
+                plugin.getLogger().info("HikariCP Connection Pool geschlossen.");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().severe("Fehler beim Schließen des Connection Pools: " + e.getMessage());
             e.printStackTrace();
         }
     }
     
-     // Prüft, ob aktuell eine funktionierende Verbindung besteht.
-
+    /**
+     * Prüft, ob der Connection Pool aktiv ist
+     */
     public boolean isConnected() {
-        try {
-            return connection != null && !connection.isClosed();
-        } catch (SQLException e) {
-            return false;
-        }
+        return dataSource != null && !dataSource.isClosed();
     }
 
-    // Gibt die aktuelle Verbindung zurück oder stellt sie her, falls nötig.
-    
-    public Connection getConnection() {
+    /**
+     * Gibt eine Connection aus dem Pool zurück
+     * HikariCP verwaltet die Connection automatisch
+     */
+    public Connection getConnection() throws SQLException {
         if (!isConnected()) {
-            openConnection();
+            throw new SQLException("Connection Pool ist nicht initialisiert oder wurde geschlossen!");
         }
-        return connection;
+        return dataSource.getConnection();
+    }
+    
+    /**
+     * Gibt Statistiken über den Connection Pool zurück
+     */
+    public String getPoolStats() {
+        if (!isConnected()) {
+            return "Connection Pool ist nicht aktiv";
+        }
+        
+        return String.format("HikariCP Stats: Active=%d, Idle=%d, Total=%d, Waiting=%d",
+            dataSource.getHikariPoolMXBean().getActiveConnections(),
+            dataSource.getHikariPoolMXBean().getIdleConnections(),
+            dataSource.getHikariPoolMXBean().getTotalConnections(),
+            dataSource.getHikariPoolMXBean().getThreadsAwaitingConnection()
+        );
     }
 }
