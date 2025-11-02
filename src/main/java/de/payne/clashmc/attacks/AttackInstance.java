@@ -71,7 +71,8 @@ public class AttackInstance {
             return;
         }
 
-        final int maxDurationSeconds = 180; // 3 Minuten (wie bei deinem Timer)
+        // Attack-Duration aus Config
+        final int maxDurationSeconds = ClashMC.getInstance().getConfigManager().getAttackDurationSeconds();
 
         // Starte den ActionBar-Task
         actionBarTask = new BukkitRunnable() {

@@ -53,15 +53,21 @@ public class ResourceManager {
         long now = System.currentTimeMillis();
         long lastCollected = resources.getLastCollectorUse();
         long elapsedMillis = now - lastCollected;
-        long maxElapsed = TimeUnit.HOURS.toMillis(12);
+        
+        // Max Offline-Zeit aus Config
+        int maxOfflineHours = ClashMC.getInstance().getConfigManager().getCollectorMaxOfflineHours();
+        long maxElapsed = TimeUnit.HOURS.toMillis(maxOfflineHours);
         long effectiveMillis = Math.min(elapsedMillis, maxElapsed);
 
-        if (effectiveMillis < TimeUnit.MINUTES.toMillis(1)) {
+        // Min Collection-Interval aus Config
+        int minIntervalSeconds = ClashMC.getInstance().getConfigManager().getCollectorMinCollectionInterval();
+        if (effectiveMillis < TimeUnit.SECONDS.toMillis(minIntervalSeconds)) {
             player.sendMessage("§7Noch nicht genug Ressourcen gesammelt.");
             return;
         }
 
-        double efficiency = 0.05 + 0.01 * villageLevel; // 5% + 1% pro Level
+        // Effizienz aus Config berechnen
+        double efficiency = ClashMC.getInstance().getConfigManager().calculateCollectorEfficiency(villageLevel);
         int collectedCoins = (int) ((effectiveMillis / 1000.0) * efficiency);
 
         if (collectedCoins <= 0) {
