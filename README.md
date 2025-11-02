@@ -57,9 +57,19 @@ Ein umfangreiches Minecraft-Plugin, das Clash of Clans-Mechaniken in Minecraft i
 - **Offline-Angriffe**: Greife Spieler an, die nicht online sind
 - **Level-Matching**: Angriffe nur gegen Spieler mit ähnlichem Level (±20)
 - **3-Minuten-Timer**: Schnelles, actionreiches Gameplay
-- **Replay-System**: Alle Angriffe werden als JSON gespeichert
 - **Schadens-Berechnung**: Präzise Prozent-basierte Belohnungen
 - **Equipment-Skalierung**: Level-basierte Waffen und Rüstung
+
+### 🎬 Replay-System
+- **Movement-Tracking**: Speichert Spieler-Position alle 0.5 Sekunden
+- **Vogelperspektive**: Schaue Angriffe von oben an
+- **ArmorStand-NPC**: NPC läuft den Angreifer-Path smooth nach
+- **Block-Animation**: Partikel-Effekte und Sounds bei Block-Zerstörung
+- **Speed-Control**: 0.5x, 1x, 2x, 4x, 8x Geschwindigkeit
+- **Follow-Cam**: Kamera folgt NPC oder frei beweglich
+- **7-Tage-Retention**: Spieler sehen Replays <7 Tage
+- **Admin-Modus**: Admins sehen alle Replays unbegrenzt
+- **Timeline**: ActionBar mit Progress-Bar
 
 ### 🎮 GUI-System
 - **Rathaus-Menü**: Zentrale Übersicht über Dorf und Ressourcen
@@ -185,6 +195,55 @@ password: dein_sicheres_passwort
 ---
 
 ## 🎮 Spielmechaniken
+
+### Replay-System
+
+#### Setup
+1. **Replay-Welt erstellen**:
+   ```
+   /mv create Replays VOID
+   ```
+
+2. **Replay ansehen**:
+   - Öffne Rathaus-Menü (Rechtsklick auf Lapis-Block)
+   - Klicke auf "Replay-System"
+   - Wähle ein Replay aus der Liste
+
+#### Features
+
+**Movement-Tracking:**
+- Alle 0.5 Sekunden wird die Position des Angreifers gespeichert
+- Smooth NPC-Movement für realistische Wiedergabe
+
+**Vogelperspektive:**
+- Spieler wird 30 Blöcke über Dorf teleportiert
+- Spectator-Mode mit freier Bewegung
+- Optional: Follow-Cam (Kamera folgt NPC)
+
+**Controls (Items im Inventar):**
+- **Slot 0** (Red Bed): Replay beenden
+- **Slot 2** (Feather): 0.5x Geschwindigkeit
+- **Slot 3** (Paper): 1x Normal
+- **Slot 4** (Sugar x2): 2x Schnell
+- **Slot 5** (Sugar x4): 4x Sehr schnell
+- **Slot 6** (Sugar x8): 8x Ultra schnell
+- **Slot 8** (Ender Eye): Kamera-Modus wechseln (Frei ↔ Folgen)
+
+**Timeline:**
+- ActionBar zeigt Progress-Bar
+- Zeigt Zeit + Prozent + Geschwindigkeit
+
+**Access-Control:**
+- **Spieler**: Sehen eigene Angriffe + Angriffe auf eigenes Dorf (<7 Tage)
+- **Admins** (`clashmc.admin.replay`): Sehen ALLE Replays unbegrenzt
+
+#### Technische Details
+- NPC: ArmorStand mit Custom-Name und Waffe
+- Block-Breaking: Partikel-Effekte + Sound
+- Grid-System: 10×10 = 100 gleichzeitige Replay-Sessions
+- Daten: JSON-Speicherung (Blocks + Movement)
+
+---
 
 ### Dorf-System
 
@@ -519,9 +578,9 @@ ClashMC/
 ### Geplante Features
 
 #### 🎯 Nächste Phase (hohe Priorität)
-- [ ] **Replay-Viewer**: Angriffe visuell wiedergeben (Daten bereits gespeichert, nur Viewer fehlt)
-- [ ] **Config-System**: Zentrale config.yml für alle hardcodierten Werte (Timing, Kosten, etc.)
 - [ ] **Scoreboard**: Live-Statistiken Sidebar mit Toggle-Command
+- [ ] **Defensive Strukturen**: Golems, Türme, Fallen für Offline-Schutz
+- [ ] **Achievements**: Erfolgs-System mit Kategorien
 
 #### 🚀 Zukünftige Features (mittlere Priorität)
 - [ ] **Clans/Guilds**: Spieler-Gruppierungen mit Clan-Wars
@@ -535,23 +594,27 @@ ClashMC/
 - [x] **Connection Pooling**: → **HikariCP (max 10 Connections)**
 - [x] **Caching-System**: → **CacheManager mit TTL und Auto-Invalidation**
 - [x] **Admin-Tools**: → `/clash stats` Command für Monitoring
+- [x] **Config-System**: → **Umfassende config.yml mit /clash reload**
+- [x] **Replay-Viewer**: → **Vollständiges Replay-System mit NPC, Kamera, Controls**
 
 ---
 
 ## 🐛 Bekannte Issues
 
-- **Replay-System**: Daten werden gespeichert, aber Viewer-Interface fehlt noch
-- **Config-System**: Keine Config-Optionen für Timing/Kosten (hardcoded)
 - **Scoreboard**: Verzeichnis existiert, aber noch nicht implementiert
+- **Replay-Welt**: Muss manuell mit `/mv create Replays VOID` erstellt werden
+- **Defensive Strukturen**: Noch nicht implementiert (Golems, Traps, Türme)
 
-### ✅ Kürzlich behoben:
-- ~~Mine-Chunk-Loading kann manchmal verzögert sein~~ → **BEHOBEN** (Synchrones Loading implementiert)
-- ~~Defender-Ausrüstung wird auch bei Online-Angriffen als Attacker-Equipment vergeben~~ → **BEHOBEN** (Zeile 83 in AttackManager)
-- ~~ActionBar-Tasks laufen weiter bei Disconnect~~ → **BEHOBEN** (Proper cleanup in MineManager)
-- ~~Keine Connection-Pooling~~ → **BEHOBEN** (HikariCP implementiert)
-- ~~Redundante DB-Calls in GUIs~~ → **BEHOBEN** (CacheManager + PlayerDataCache implementiert)
-- ~~Async Database-Operations nicht implementiert~~ → **BEHOBEN** (AsyncDatabaseModule + vollständige CompletableFuture-Integration)
-- ~~TODO-Kommentare in AttackInstance.cleanup()~~ → **BEHOBEN** (Async cleanup mit performCleanup())
+### ✅ Kürzlich implementiert:
+- ~~Replay-System~~ → **KOMPLETT IMPLEMENTIERT** (Movement-Tracking, NPC, Kamera, Controls)
+- ~~Config-System~~ → **KOMPLETT IMPLEMENTIERT** (400+ Zeilen config.yml, /clash reload)
+- ~~Mine-Chunk-Loading~~ → **BEHOBEN** (Synchrones Loading)
+- ~~Defender-Ausrüstung~~ → **BEHOBEN** (Zeile 83 in AttackManager)
+- ~~ActionBar-Tasks~~ → **BEHOBEN** (Proper cleanup)
+- ~~Connection-Pooling~~ → **BEHOBEN** (HikariCP)
+- ~~Redundante DB-Calls~~ → **BEHOBEN** (CacheManager)
+- ~~Async Database~~ → **BEHOBEN** (AsyncDatabaseModule)
+- ~~TODO-Kommentare~~ → **BEHOBEN** (Async cleanup)
 
 ---
 
