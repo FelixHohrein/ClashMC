@@ -57,8 +57,10 @@ public class TownHallClickListener implements Listener {
                 player.openInventory(new ShopMenu(player).getInventory());
                 break;
             case 16:
-                player.sendMessage("§eDas Replay-System ist noch in Entwicklung.");
-                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+                // Replay-System
+                player.closeInventory();
+                new de.payne.clashmc.gui.ReplayListMenu(player).open();
+                player.playSound(player.getLocation(), Sound.BLOCK_ENDER_CHEST_OPEN, 1f, 1f);
                 break;
             default:
                 if (type == Material.BLACK_STAINED_GLASS_PANE) {

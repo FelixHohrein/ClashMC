@@ -72,7 +72,18 @@ public class TownHallMenu implements InventoryHolder {
         inventory.setItem(13, ItemStackUtil.createItem(Material.DIAMOND_SWORD, "§cAngriffsmenü", List.of("§7Öffne das Angriffsmenu")));
         inventory.setItem(14, ItemStackUtil.createItem(Material.MINECART, "§7Mine Shop", List.of("§7Öffne den Minen-Shop")));
         inventory.setItem(15, ItemStackUtil.createItem(Material.CHEST, "§6Shop", List.of("§7Öffne den §eShop")));
-        inventory.setItem(16, ItemStackUtil.createItem(Material.COMMAND_BLOCK, "§bReplay System", List.of("§7In Entwicklung...")));
+        inventory.setItem(16, ItemStackUtil.createItem(
+            Material.ENDER_EYE, 
+            "§b§lReplay-System", 
+            List.of(
+                "§7Schaue dir vergangene Angriffe an!",
+                "",
+                "§7Deine Angriffe und",
+                "§7Angriffe auf dein Dorf",
+                "",
+                "§eKlicken zum Öffnen!"
+            )
+        ));
 
         for (int i = 9; i <= 13; i++) {
             if (inventory.getItem(i) == null) {

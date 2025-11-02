@@ -158,6 +158,8 @@ public class ClashMC extends JavaPlugin {
 		 this.getServer().getPluginManager().registerEvents(new MineEnterListener(), this); // Block Interact Mine
 		 this.getServer().getPluginManager().registerEvents(new AttackMenuClickListener(this, this.attackManager), this); // Attack GIU
 		 this.getServer().getPluginManager().registerEvents(new AttackBlockBreakListener(), this);
+		 this.getServer().getPluginManager().registerEvents(new de.payne.clashmc.listeners.player.ReplayListClickListener(), this); // Replay List GUI
+		 this.getServer().getPluginManager().registerEvents(new de.payne.clashmc.listeners.player.ReplayControlsListener(), this); // Replay Controls
 	}
 	
 	private final void registerCommands() {
