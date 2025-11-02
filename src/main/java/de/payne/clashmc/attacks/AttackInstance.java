@@ -236,20 +236,33 @@ public class AttackInstance {
     public void cleanup() {
         Player attacker = Bukkit.getPlayer(attackerUuid);
         Player defender = Bukkit.getPlayer(defenderUuid);
-        int defenderKingId = -1;
-        try {
-			defenderKingId = ClashMC.getInstance().getDatabaseManager().players().getPlayerIdByUUID(defenderUuid);
-		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-        int level = 1;
-        try {
-			level = ClashMC.getInstance().getDatabaseManager().villages().getVillageLevel(defenderKingId);
-		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+        
+        // ASYNC: Lade defender Level via Cache (schnell, non-blocking)
+        ClashMC.getInstance().getDatabaseManager().players().getPlayerIdByUUIDAsync(defenderUuid)
+            .thenCompose(defenderKingId -> {
+                if (defenderKingId == -1) {
+                    LogUtil.logError(ClashMC.getInstance(), "[AttackInstance] Cleanup: Ungültige Defender King-ID");
+                    return java.util.concurrent.CompletableFuture.completedFuture(1); // Default Level
+                }
+                return ClashMC.getInstance().getDatabaseManager().villages().getVillageLevelAsync(defenderKingId);
+            })
+            .thenAccept(level -> {
+                // Cleanup-Logik auf Main-Thread ausführen (Bukkit API erfordert Main-Thread)
+                Bukkit.getScheduler().runTask(ClashMC.getInstance(), () -> {
+                    performCleanup(attacker, defender, level);
+                });
+            })
+            .exceptionally(throwable -> {
+                LogUtil.logError(ClashMC.getInstance(), "[AttackInstance] Cleanup async error: " + throwable.getMessage());
+                // Fallback: Cleanup mit Default-Level ausführen
+                Bukkit.getScheduler().runTask(ClashMC.getInstance(), () -> {
+                    performCleanup(attacker, defender, 1);
+                });
+                return null;
+            });
+    }
+    
+    private void performCleanup(Player attacker, Player defender, int level) {
         // 1. Spieler zurückteleportieren (z. B. in ihre Welt/Hauptwelt)
         if (attacker != null && attacker.isOnline()) {
             attacker.teleport(ClashMC.getInstance().getVillageAllocator().getVillageCenterTeleportOrSpawnLocation(attackerUuid)); // Ziel anpassen
