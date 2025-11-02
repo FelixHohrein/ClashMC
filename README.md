@@ -523,37 +523,148 @@ mvn clean install
 ```
 ClashMC/
 ├── src/main/java/de/payne/clashmc/
-│   ├── ClashMC.java              # Hauptklasse
-│   ├── attacks/                  # Angriffs-System
-│   │   ├── AttackManager.java
-│   │   ├── AttackInstance.java
-│   │   ├── AttackInstanceManager.java
-│   │   └── equipment/            # Equipment-Skalierung
-│   ├── cache/                    # Cache-System
-│   │   └── CacheManager.java
-│   ├── commands/                 # Command-Handler
-│   ├── database/                 # Datenbank-Layer
-│   │   ├── DatabaseManager.java
-│   │   ├── MySqlDatabase.java    # HikariCP Integration
-│   │   ├── modules/              # DB-Module pro Tabelle
-│   │   └── migrations/           # SQL-Migrations
-│   ├── economy/                  # Währungs-System
-│   ├── files/                    # Config-Handler
-│   ├── gui/                      # Inventory-GUIs
-│   ├── handlers/                 # Data-Handler
-│   ├── listeners/                # Event-Listener
-│   ├── maphandling/              # Welt-/Schematic-Verwaltung
-│   ├── mine/                     # Mine-System
-│   ├── scoreboard/               # Scoreboard (geplant)
-│   └── utils/                    # Utility-Klassen
-│       ├── PlayerDataCache.java  # Cache-Helper für GUIs
-│       ├── ItemStackUtil.java
-│       └── LogUtil.java
+│   ├── ClashMC.java                              # Hauptklasse - Plugin-Initialisierung
+│   │
+│   ├── attacks/                                  # ⚔️ Angriffs-System
+│   │   ├── AttackInstance.java                  # Einzelne Angriffs-Instanz
+│   │   ├── AttackInstanceManager.java           # Verwaltet 100 gleichzeitige Angriffe
+│   │   ├── AttackManager.java                   # Zentrale Angriffs-Verwaltung
+│   │   ├── BrokenBlock.java                     # Zerstörter Block (für Replay)
+│   │   └── equipment/                           # Equipment-System
+│   │       ├── AttackerLoadouts.java            # Angreifer-Equipment
+│   │       ├── DefenderLoadouts.java            # Verteidiger-Equipment
+│   │       ├── EquipmentManager.java            # Equipment-Verwaltung
+│   │       ├── EquipmentTemplate.java           # Template-Pattern
+│   │       ├── LevelRange.java                  # Level-Ranges
+│   │       └── ScaledEquipmentTemplate.java     # Skalierungs-System
+│   │
+│   ├── cache/                                    # 🚀 Performance-Caching
+│   │   └── CacheManager.java                    # TTL-basiertes Caching
+│   │
+│   ├── commands/                                 # 📋 Command-System
+│   │   ├── ClashCommand.java                    # Basis-Command
+│   │   ├── CommandHandler.java                  # Command-Router
+│   │   ├── CommandInterface.java                # Command-Interface
+│   │   └── subcommands/                         # Alle Subcommands
+│   │       ├── AddCoinsCommand.java             # /clash addcoins (Admin)
+│   │       ├── InfoCommand.java                 # /clash info
+│   │       ├── MineSessionCommand.java          # /clash mine (Admin)
+│   │       ├── ReloadCommand.java               # /clash reload (Admin)
+│   │       ├── ResetCommand.java                # /clash reset (Admin)
+│   │       ├── SaveMineCommand.java             # /clash savemine (Admin)
+│   │       ├── SaveSchematicCommand.java        # /clash saveschematic (Admin)
+│   │       ├── StatsCommand.java                # /clash stats (Admin)
+│   │       ├── TopCommand.java                  # /clash top
+│   │       └── UpgradeCommand.java              # /clash upgrade (Admin)
+│   │
+│   ├── config/                                   # ⚙️ Config-System
+│   │   └── ConfigManager.java                   # 100+ Config-Getter
+│   │
+│   ├── database/                                 # 💾 Datenbank-Layer
+│   │   ├── DatabaseManager.java                 # Zentrale DB-Verwaltung
+│   │   ├── MySqlDatabase.java                   # HikariCP Connection Pool
+│   │   ├── core/                                # Basis-Klassen
+│   │   │   ├── AsyncDatabaseModule.java         # Async-Wrapper
+│   │   │   └── DatabaseModule.java              # Base-Class
+│   │   ├── migrations/                          # SQL-Migrations
+│   │   │   └── MigrationManager.java            # Auto-Migration beim Start
+│   │   └── modules/                             # DB-Module (pro Tabelle)
+│   │       ├── AttackDatabase.java              # kgmg_attacks + replays
+│   │       ├── MineDatabase.java                # kgmg_mine_data + boosters
+│   │       ├── PlayerDatabase.java              # kgmg_players
+│   │       ├── PlayerResourcesDatabase.java     # kgmg_player_resources
+│   │       └── VillageDatabase.java             # kgmg_villages
+│   │
+│   ├── economy/                                  # 💰 Wirtschafts-System
+│   │   ├── PlayerResources.java                 # Ressourcen-Container
+│   │   └── ResourceManager.java                 # Collector + Transactions
+│   │
+│   ├── files/                                    # 📁 File-Handler
+│   │   ├── DatabaseHandler.java                 # database.yml
+│   │   ├── FileManager.java                     # Zentrale File-Verwaltung
+│   │   ├── FILENAME.java                        # Enum für Dateien
+│   │   ├── ReplayHandler.java                   # replay.yml
+│   │   └── VillageDataHandler.java              # village.yml
+│   │
+│   ├── gui/                                      # 🎮 Inventory-GUIs
+│   │   ├── AttackMenu.java                      # Angriffs-Auswahl
+│   │   ├── MineRewardMenu.java                  # Mine-Belohnungen
+│   │   ├── ReplayListMenu.java                  # Replay-Auswahl (NEU!)
+│   │   ├── ShopMenu.java                        # Haupt-Shop
+│   │   ├── TownHallMenu.java                    # Rathaus (Hauptmenü)
+│   │   └── UpgradeShopMenu.java                 # Dorf-Upgrades
+│   │
+│   ├── handlers/                                 # 🔧 Data-Handler
+│   │   └── PlayerDataHandler.java               # Spieler-Daten-Operationen
+│   │
+│   ├── listeners/                                # 👂 Event-Listener
+│   │   ├── player/                              # Spieler-Events
+│   │   │   ├── AttackBlockBreakListener.java    # Block-Break während Angriff
+│   │   │   ├── AttackMenuClickListener.java     # Attack-GUI Clicks
+│   │   │   ├── MineEnterListener.java           # Mine-Session Start
+│   │   │   ├── MineLeaveListener.java           # Mine-Session Ende
+│   │   │   ├── MineRewardClickListener.java     # Mine-Reward-GUI Clicks
+│   │   │   ├── PlayerInteractListener.java      # Collector-Interaction
+│   │   │   ├── PlayerJoinListener.java          # Join-Handler (Async)
+│   │   │   ├── PlayerLeaveListener.java         # Leave-Handler
+│   │   │   ├── ReplayControlsListener.java      # Replay-Controls (NEU!)
+│   │   │   ├── ReplayListClickListener.java     # Replay-GUI Clicks (NEU!)
+│   │   │   ├── ShopClickListener.java           # Shop-GUI Clicks
+│   │   │   ├── TownHallClickListener.java       # Rathaus-GUI Clicks
+│   │   │   └── UpgradeShopClickListener.java    # Upgrade-GUI Clicks
+│   │   └── world/                               # Welt-Events (leer)
+│   │
+│   ├── maphandling/                              # 🗺️ Welt-/Schematic-Verwaltung
+│   │   └── schematic/
+│   │       ├── SchematicManager.java            # WorldEdit-Integration
+│   │       ├── VillageAllocator.java            # Grid-basierte Dorf-Zuweisung
+│   │       └── VillageBuilder.java              # Dorf-Platzierung
+│   │
+│   ├── mine/                                     # ⛏️ Mine-System
+│   │   ├── MineBoosterType.java                 # Booster-Enum (aus Config)
+│   │   ├── MineInstance.java                    # Einzelne Mine-Session
+│   │   ├── MineManager.java                     # Mine-Verwaltung
+│   │   ├── MineMaterialType.java                # Ressourcen-Typen
+│   │   ├── MineResourceReplacer.java            # Erz-Verteilung (aus Config)
+│   │   └── MineSchematicManager.java            # Mine-Schematics
+│   │
+│   ├── replay/                                   # 🎬 Replay-System (NEU!)
+│   │   ├── MovementPoint.java                   # Position-Tracking
+│   │   ├── ReplayData.java                      # Replay-Daten-Container
+│   │   ├── ReplayInstance.java                  # Replay-Session-Manager
+│   │   ├── ReplayPlayer.java                    # Wiedergabe-Engine
+│   │   └── ReplayWorldManager.java              # Replay-Welt + Grid
+│   │
+│   ├── scoreboard/                               # 📊 Scoreboard (geplant)
+│   │
+│   └── utils/                                    # 🛠️ Utility-Klassen
+│       ├── ItemStackUtil.java                   # Item-Creation-Helper
+│       ├── LogUtil.java                         # Logging-Utilities
+│       └── PlayerDataCache.java                 # Cache-Helper
+│
 ├── src/main/resources/
-│   └── plugin.yml                # Plugin-Konfiguration
-├── pom.xml                       # Maven-Konfiguration
-└── README.md                     # Diese Datei
+│   ├── config.yml                                # Haupt-Konfiguration (400+ Zeilen)
+│   └── plugin.yml                                # Plugin-Metadaten
+│
+├── pom.xml                                       # Maven-Dependencies & Build
+├── .gitignore                                    # Git-Ignore-Rules
+└── README.md                                     # Diese Datei
 ```
+
+### Projekt-Statistiken
+
+| Kategorie | Anzahl |
+|-----------|--------|
+| **Packages** | 14 |
+| **Java-Klassen** | 70+ |
+| **Commands** | 10 |
+| **GUIs** | 6 |
+| **Listener** | 15 |
+| **Database-Module** | 5 |
+| **Database-Tabellen** | 8 |
+| **Config-Variablen** | 100+ |
+| **Zeilen Code** | ~10,000+ |
+| **Dependencies** | 8 |
 
 ### Code-Conventions
 
