@@ -10,10 +10,7 @@ import com.sk89q.worldedit.world.block.BlockTypes;
 
 import de.payne.clashmc.ClashMC;
 import de.payne.clashmc.utils.LogUtil;
-import net.kyori.adventure.text.Component;
-import net.md_5.bungee.api.chat.TextComponent;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 
 import java.util.LinkedHashMap;
@@ -128,11 +125,9 @@ public class MineResourceReplacer {
      * @param exception Die ausgelöste Exception
      */
     private static void logInvalidBlock(BlockVector3 position, Material material, Exception exception) {
-        LogUtil.logError(ClashMC.getInstance(),
-                "Fehler beim Setzen des Blocks an (" + position.getX() + "," + position.getY() + "," + position.getZ()
-                        + ") -> " + material + ": " + exception.getMessage());
-        Bukkit.broadcast(Component.text("Fehler beim Setzen des Blocks an (\" + position.getX() + \",\" + position.getY() + \",\" + position.getZ()\r\n"
-        		+ "                        + \") -> \" + material + \": \" + exception.getMessage()"));
+        String errorMessage = "Fehler beim Setzen des Blocks an (" + position.getX() + "," + position.getY() + "," + position.getZ()
+                + ") -> " + material + ": " + exception.getMessage();
+        LogUtil.logError(ClashMC.getInstance(), errorMessage);
         exception.printStackTrace();
     }
 }

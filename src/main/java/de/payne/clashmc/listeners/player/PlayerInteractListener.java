@@ -10,19 +10,11 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 
-import de.payne.clashmc.ClashMC;
 import de.payne.clashmc.economy.ResourceManager;
-
 
 public class PlayerInteractListener implements Listener {
 
     private static final Material COLLECTOR_BLOCK_TYPE = Material.LAPIS_BLOCK;
-
-    private ResourceManager resourceManager;
-
-    public PlayerInteractListener() {
-        
-    }
 
     @EventHandler
     public void onCollectorClick(PlayerInteractEvent event) {
@@ -38,11 +30,10 @@ public class PlayerInteractListener implements Listener {
         event.setCancelled(true);
 
         Player player = event.getPlayer();
-        this.resourceManager = new ResourceManager(player);
+        ResourceManager resourceManager = new ResourceManager(player);
         resourceManager.collectResources();
         
         player.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3);
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);
-
     }
 }

@@ -13,8 +13,12 @@ public class UpgradeCommand implements CommandInterface {
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-        Player player = (Player) sender;
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cDieser Command kann nur von Spielern ausgeführt werden.");
+            return true;
+        }
         
+        Player player = (Player) sender;
         PlayerDataHandler handler = new PlayerDataHandler(player.getUniqueId());
         handler.upgradeVillage();
         
