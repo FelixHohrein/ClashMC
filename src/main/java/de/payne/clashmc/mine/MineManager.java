@@ -110,14 +110,6 @@ public class MineManager {
         }
         
         // Player ist online - sammle Items und speichere
-        int kingId = -1;
-        try {
-            kingId = ClashMC.getInstance().getDatabaseManager().players().getPlayerIdByUUID(playerId);
-        } catch (SQLException e) {
-            LogUtil.logError(plugin, "[MineManager] Fehler beim Laden der KING-ID für Spieler " + player.getName() + ": " + e.getMessage());
-            e.printStackTrace();
-        }
-        
         // Sammle Items vom Inventar
         if (player.getInventory() != null) {
             for (ItemStack item : player.getInventory().getContents()) {
@@ -134,21 +126,35 @@ public class MineManager {
             }
         }
         
-        // Speichere Items in Datenbank
-        if (kingId != -1) {
-            for (Map.Entry<MineMaterialType, Integer> entry : instance.getCollectedItems().entrySet()) {
-                MineMaterialType type = entry.getKey();
-                int amount = entry.getValue();
-
-                try {
-                    ClashMC.getInstance().getDatabaseManager().mine().saveOrUpdateItem(kingId, type, amount);
-                } catch (SQLException e) {
-                    LogUtil.logError(plugin, "[MineManager] Fehler beim Speichern von " + type.name() + " für " + player.getName() + ": " + e.getMessage());
-                    e.printStackTrace();
-                    player.sendMessage("§cFehler beim Speichern, wende dich an ein Teammitglied.");
+        // ASYNC: Speichere Items in Datenbank
+        ClashMC.getInstance().getDatabaseManager().players().getPlayerIdByUUIDAsync(playerId)
+            .thenAccept(kingId -> {
+                if (kingId == -1) {
+                    LogUtil.logError(plugin, "[MineManager] Ungültige KING-ID für Spieler " + playerId);
+                    return;
                 }
-            }
-        }
+                
+                // Speichere alle gesammelten Items async
+                for (Map.Entry<MineMaterialType, Integer> entry : instance.getCollectedItems().entrySet()) {
+                    MineMaterialType type = entry.getKey();
+                    int amount = entry.getValue();
+                    
+                    ClashMC.getInstance().getDatabaseManager().mine().saveOrUpdateItemAsync(kingId, type, amount)
+                        .exceptionally(throwable -> {
+                            LogUtil.logError(plugin, "[MineManager] Fehler beim Speichern von " + type.name() + ": " + throwable.getMessage());
+                            Bukkit.getScheduler().runTask(plugin, () -> {
+                                if (player != null && player.isOnline()) {
+                                    player.sendMessage("§cFehler beim Speichern von " + type.getDisplayName());
+                                }
+                            });
+                            return null;
+                        });
+                }
+            })
+            .exceptionally(throwable -> {
+                LogUtil.logError(plugin, "[MineManager] Fehler beim Laden der KING-ID: " + throwable.getMessage());
+                return null;
+            });
 
         // Teleportiere zurück und clear Inventar
         try {

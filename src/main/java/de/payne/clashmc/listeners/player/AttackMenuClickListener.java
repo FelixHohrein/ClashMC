@@ -168,7 +168,7 @@ public class AttackMenuClickListener implements Listener {
 
         UUID uuid;
         try {
-            uuid = plugin.getDatabaseManager().players().getUUIDIdByKingId(selectedId);
+            uuid = plugin.getDatabaseManager().players().getUUIDByKingId(selectedId);
         } catch (SQLException e) {
             e.printStackTrace();
             return null;

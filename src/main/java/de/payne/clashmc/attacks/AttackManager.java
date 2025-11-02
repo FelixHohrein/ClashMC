@@ -103,56 +103,70 @@ public class AttackManager {
         double damagePercent = instance.calculateDamage();
         long clashCoinsLoot = instance.calculateClashCoinReward();
         long kingCoinsLoot = instance.calculateKingCoinReward();
+        String replayJson = instance.getBrokenBlocksAsJsonString();
 
-        int defenderId = -1;
-        int attackerId = -1;
-
-        try {
-            attackerId = plugin.getDatabaseManager().players().getPlayerIdByUUID(attackerUuid);
-            defenderId = plugin.getDatabaseManager().players().getPlayerIdByUUID(defenderUuid);
-        } catch (SQLException e) {
-            LogUtil.logError(this.plugin, "[Attacks] Fehler beim Laden der Spieler-IDs: " + e.getMessage());
-            e.printStackTrace();
-            return;
-        }
-        
-        if (attackerId == -1 || defenderId == -1) {
-            LogUtil.logError(this.plugin, "[Attacks] Ungültige Spieler-IDs nach Angriff");
-            return;
-        }
-        
-        int attackId = plugin.getDatabaseManager().attacks().createAttack(
-                attackerId,
-                defenderId,
-                instance.isOnline(),
-                damagePercent,
-                clashCoinsLoot,
-                kingCoinsLoot
-        );
-
-        // Update resources
-        try {
-            Player attacker = Bukkit.getPlayer(attackerUuid);
-            if (attacker != null && attacker.isOnline()) {
-                Player defender = Bukkit.getPlayer(defenderUuid);
-                if (defender != null && defender.isOnline()) {
-                    attacker.sendMessage("§aDu hast Spieler " + defender.getName() + " §e" + clashCoinsLoot + " Clash-Coins §agestohlen!");
-                    defender.sendMessage("§cDir wurden von Spieler " + attacker.getName() + " §e" + clashCoinsLoot + " Clash-Coins §cgestohlen!");
-                } else {
-                    attacker.sendMessage("§aDu hast Spieler " + Bukkit.getOfflinePlayer(defenderUuid).getName() + " §e" + clashCoinsLoot + " Clash-Coins §agestohlen!");
+        // ASYNC: Lade Player-IDs
+        plugin.getDatabaseManager().players().getPlayerIdByUUIDAsync(attackerUuid)
+            .thenCombine(
+                plugin.getDatabaseManager().players().getPlayerIdByUUIDAsync(defenderUuid),
+                (attackerId, defenderId) -> {
+                    if (attackerId == -1 || defenderId == -1) {
+                        LogUtil.logError(this.plugin, "[Attacks] Ungültige Spieler-IDs nach Angriff");
+                        return -1;
+                    }
+                    
+                    // ASYNC: Erstelle Attack-Eintrag
+                    return plugin.getDatabaseManager().attacks().createAttack(
+                        attackerId, defenderId, instance.isOnline(), 
+                        damagePercent, clashCoinsLoot, kingCoinsLoot
+                    );
                 }
-            }
-            plugin.getDatabaseManager().resources().addClashCoins(attackerId, clashCoinsLoot);
-            plugin.getDatabaseManager().resources().removeClashCoins(defenderId, clashCoinsLoot / 2);
-        } catch (SQLException e) {
-            LogUtil.logError(this.plugin, "[Attacks] Es konnten keine Coins hinzugefügt/abgezogen werden: " + e.getMessage());
-            e.printStackTrace();
-        }
-        
-        String replayJson = instance.getBrokenBlocksAsJsonString();  
-        plugin.getDatabaseManager().attacks().saveReplay(attackId, replayJson);
+            )
+            .thenAccept(attackId -> {
+                if (attackId == -1) return;
+                
+                // ASYNC: Speichere Replay
+                plugin.getDatabaseManager().attacks().saveReplayAsync(attackId, replayJson);
+            })
+            .exceptionally(throwable -> {
+                LogUtil.logError(this.plugin, "[Attacks] Async Fehler: " + throwable.getMessage());
+                throwable.printStackTrace();
+                return null;
+            });
 
-        // Teleportation zurück, Messages, GUI öffnen etc.
+        // ASYNC: Update Resources
+        plugin.getDatabaseManager().players().getPlayerIdByUUIDAsync(attackerUuid)
+            .thenCombine(
+                plugin.getDatabaseManager().players().getPlayerIdByUUIDAsync(defenderUuid),
+                (attackerId, defenderId) -> {
+                    if (attackerId != -1 && defenderId != -1) {
+                        // Send messages on main thread
+                        Player attacker = Bukkit.getPlayer(attackerUuid);
+                        if (attacker != null && attacker.isOnline()) {
+                            Player defender = Bukkit.getPlayer(defenderUuid);
+                            Bukkit.getScheduler().runTask(plugin, () -> {
+                                if (defender != null && defender.isOnline()) {
+                                    attacker.sendMessage("§aDu hast Spieler " + defender.getName() + " §e" + clashCoinsLoot + " Clash-Coins §agestohlen!");
+                                    defender.sendMessage("§cDir wurden von Spieler " + attacker.getName() + " §e" + clashCoinsLoot + " Clash-Coins §cgestohlen!");
+                                } else {
+                                    attacker.sendMessage("§aDu hast Spieler " + Bukkit.getOfflinePlayer(defenderUuid).getName() + " §e" + clashCoinsLoot + " Clash-Coins §agestohlen!");
+                                }
+                            });
+                        }
+                        
+                        // Async coin updates
+                        plugin.getDatabaseManager().resources().addClashCoinsAsync(attackerId, clashCoinsLoot);
+                        plugin.getDatabaseManager().resources().removeClashCoinsAsync(defenderId, clashCoinsLoot / 2);
+                    }
+                    return null;
+                }
+            )
+            .exceptionally(throwable -> {
+                LogUtil.logError(this.plugin, "[Attacks] Fehler bei Ressourcen-Update: " + throwable.getMessage());
+                return null;
+            });
+
+        // Cleanup läuft synchron (Bukkit-API erfordert main thread)
         instance.cleanup();
         instanceManager.releaseSlot(instance.getBaseLocation());
     }

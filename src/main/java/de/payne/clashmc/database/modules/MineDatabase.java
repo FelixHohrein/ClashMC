@@ -9,22 +9,22 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
-import de.payne.clashmc.database.core.DatabaseModule;
+import de.payne.clashmc.database.core.AsyncDatabaseModule;
 import de.payne.clashmc.mine.MineBoosterType;
 import de.payne.clashmc.mine.MineMaterialType;
+import de.payne.clashmc.utils.LogUtil;
 
-public class MineDatabase extends DatabaseModule {
-
-    // === MINEN-ZUSTAND (clashmc_mine) ===
+public class MineDatabase extends AsyncDatabaseModule {
 
     public MineDatabase(Connection connection) {
-		super(connection);
-	}
+        super(connection);
+    }
 
+    // ========== SYNCHRONE METHODEN ==========
     
     public void createIfNotExist(int kingId) throws SQLException {
-        // === clashmc_mine ===
         if (!hasMineData(kingId)) {
             executeUpdate(
                 "INSERT INTO clashmc_mine (king_id, pickaxe_level, next_mine_available, " +
@@ -53,106 +53,98 @@ public class MineDatabase extends DatabaseModule {
         }
     }
         
-	public boolean hasMineData(int kingId) {
-        String sql = "SELECT 1 FROM clashmc_mine WHERE king_id = ?";
-        try (PreparedStatement stmt = super.connection.prepareStatement(sql)) {
-            stmt.setInt(1, kingId);
-            ResultSet rs = stmt.executeQuery();
-            return rs.next();
+    public boolean hasMineData(int kingId) {
+        try {
+            return exists("SELECT 1 FROM clashmc_mine WHERE king_id = ?", kingId);
         } catch (SQLException e) {
-            e.printStackTrace();
             return false;
         }
     }
 
     public void createOrUpdateMineData(int kingId, long cooldown, int upgradeLevel) throws SQLException {
         if (hasMineData(kingId)) {
-            executeUpdate("UPDATE clashmc_mine SET pickaxe_level = ?, cooldown_until = ? WHERE king_id = ?",
-                    upgradeLevel, cooldown, kingId);
+            executeUpdate("UPDATE clashmc_mine SET pickaxe_level = ?, next_mine_available = ? WHERE king_id = ?",
+                    upgradeLevel, new Timestamp(cooldown), kingId);
         } else {
-            executeUpdate("INSERT INTO clashmc_mine (king_id, pickaxe_level, cooldown_until) VALUES (?, ?, ?)",
-                    kingId, upgradeLevel, cooldown);
+            executeUpdate("INSERT INTO clashmc_mine (king_id, pickaxe_level, next_mine_available) VALUES (?, ?, ?)",
+                    kingId, upgradeLevel, new Timestamp(cooldown));
         }
     }
 
     public long getMineCooldown(int kingId) {
         String sql = "SELECT next_mine_available FROM clashmc_mine WHERE king_id = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, kingId);
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                Timestamp ts = rs.getTimestamp("next_mine_available");
-                return ts != null ? ts.getTime() : 0L;
-            }
+        try {
+            return querySingleResult(sql, rs -> {
+                try {
+                    Timestamp ts = rs.getTimestamp("next_mine_available");
+                    return ts != null ? ts.getTime() : 0L;
+                } catch (SQLException e) {
+                    return 0L;
+                }
+            }, 0L, kingId);
         } catch (SQLException e) {
-            e.printStackTrace();
+            return 0L;
         }
-        return 0L;
     }
     
     public void setMineCooldown(int kingId, long timestamp) {
-        String sql = "UPDATE clashmc_mine SET next_mine_available = ? WHERE king_id = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setTimestamp(1, new Timestamp(timestamp));
-            stmt.setInt(2, kingId);
-            stmt.executeUpdate();
+        try {
+            executeUpdate(
+                "UPDATE clashmc_mine SET next_mine_available = ? WHERE king_id = ?",
+                new Timestamp(timestamp), kingId
+            );
         } catch (SQLException e) {
+            LogUtil.logError(plugin, "Fehler bei setMineCooldown: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     public int getPickaxeLevel(int kingId) {
         String sql = "SELECT pickaxe_level FROM clashmc_mine WHERE king_id = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, kingId);
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("pickaxe_level");
-            }
+        try {
+            return querySingleResult(sql, rs -> {
+                try {
+                    return rs.getInt("pickaxe_level");
+                } catch (SQLException e) {
+                    return 0;
+                }
+            }, 0, kingId);
         } catch (SQLException e) {
-            e.printStackTrace();
+            return 0;
         }
-        return 0;
     }
     
     public void setPickaxeLevel(int kingId, int newLevel) throws SQLException {
-        String sql = "UPDATE clashmc_mine SET pickaxe_level = ? WHERE king_id = ?";
-        executeUpdate(sql, newLevel, kingId);
-
+        executeUpdate("UPDATE clashmc_mine SET pickaxe_level = ? WHERE king_id = ?", newLevel, kingId);
     }
 
     public void setBooster(int kingId, int boosterSlot, MineBoosterType type, long expiresAt) throws SQLException {
         if (boosterSlot < 1 || boosterSlot > 3) return;
         
-        if(type == MineBoosterType.NO_COOLDOWN) {
-        	this.setMineCooldown(kingId, expiresAt-1000000000);
+        if (type == MineBoosterType.NO_COOLDOWN) {
+            this.setMineCooldown(kingId, expiresAt - 1000000000);
         }
 
         String sql = "UPDATE clashmc_mine SET booster_" + boosterSlot + "_type = ?, booster_" + boosterSlot + "_expires_at = ? WHERE king_id = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setString(1, type.name());
-            stmt.setTimestamp(2, new Timestamp(expiresAt)); // <- long wert als TimeStamp
-            stmt.setInt(3, kingId);
-            stmt.executeUpdate();
-        }
+        executeUpdate(sql, type.name(), new Timestamp(expiresAt), kingId);
     }
 
     public long getBoosterExpires(int kingId, int boosterSlot) {
         if (boosterSlot < 1 || boosterSlot > 3) return 0L;
         String sql = "SELECT booster_" + boosterSlot + "_expires_at FROM clashmc_mine WHERE king_id = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, kingId);
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                Timestamp ts = rs.getTimestamp(1);
-                return ts != null ? ts.getTime() : 0L;
-            }
+        try {
+            return querySingleResult(sql, rs -> {
+                try {
+                    Timestamp ts = rs.getTimestamp(1);
+                    return ts != null ? ts.getTime() : 0L;
+                } catch (SQLException e) {
+                    return 0L;
+                }
+            }, 0L, kingId);
         } catch (SQLException e) {
-            e.printStackTrace();
+            return 0L;
         }
-        return 0L;
     }
-    
     
     public List<MineBoosterType> getActiveBoosters(int kingId) {
         List<MineBoosterType> boosters = new ArrayList<>();
@@ -163,13 +155,21 @@ public class MineDatabase extends DatabaseModule {
             String expiresColumn = "booster_" + i + "_expires_at";
             String sql = "SELECT " + typeColumn + ", " + expiresColumn + " FROM clashmc_mine WHERE king_id = ?";
 
-            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-                stmt.setInt(1, kingId);
-                ResultSet rs = stmt.executeQuery();
+            try {
+                Map<String, Object> result = querySingleResult(sql, rs -> {
+                    try {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("type", rs.getString(1));
+                        map.put("expires", rs.getTimestamp(2));
+                        return map;
+                    } catch (SQLException e) {
+                        return null;
+                    }
+                }, null, kingId);
 
-                if (rs.next()) {
-                    String type = rs.getString(1);
-                    Timestamp expires = rs.getTimestamp(2);
+                if (result != null) {
+                    String type = (String) result.get("type");
+                    Timestamp expires = (Timestamp) result.get("expires");
 
                     if (type != null && expires != null && expires.getTime() > now) {
                         try {
@@ -178,19 +178,18 @@ public class MineDatabase extends DatabaseModule {
                     }
                 }
             } catch (SQLException e) {
-                e.printStackTrace();
+                LogUtil.logError(plugin, "Fehler bei getActiveBoosters: " + e.getMessage());
             }
         }
 
         return boosters;
     }
 
-    // === MINING-ITEM-REWARDS (clashmc_mine_rewards) ===
+    // === MINING-ITEM-REWARDS ===
 
-    // Save or update mining reward
     public void saveOrUpdateItem(int kingId, MineMaterialType material, int amount) throws SQLException {
         if (hasItemEntry(kingId, material)) {
-            executeUpdate("UPDATE clashmc_mine_rewards SET amount = ? WHERE king_id = ? AND material = ?",
+            executeUpdate("UPDATE clashmc_mine_rewards SET amount = amount + ? WHERE king_id = ? AND material = ?",
                     amount, kingId, material.name());
         } else {
             executeUpdate("INSERT INTO clashmc_mine_rewards (king_id, material, amount) VALUES (?, ?, ?)",
@@ -199,41 +198,69 @@ public class MineDatabase extends DatabaseModule {
     }
 
     public boolean hasItemEntry(int kingId, MineMaterialType material) {
-        String sql = "SELECT 1 FROM clashmc_mine_rewards WHERE king_id = ? AND material = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, kingId);
-            stmt.setString(2, material.name());
-            ResultSet rs = stmt.executeQuery();
-            return rs.next();
+        try {
+            return exists("SELECT 1 FROM clashmc_mine_rewards WHERE king_id = ? AND material = ?", 
+                kingId, material.name());
         } catch (SQLException e) {
-            e.printStackTrace();
             return false;
         }
     }
 
+    public Map<MineMaterialType, Integer> getAllItems(int kingId) {
+        Map<MineMaterialType, Integer> items = new HashMap<>();
+        String sql = "SELECT material, amount FROM clashmc_mine_rewards WHERE king_id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, kingId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                String name = rs.getString("material");
+                int amount = rs.getInt("amount");
 
-public Map<MineMaterialType, Integer> getAllItems(int kingId) {
-    Map<MineMaterialType, Integer> items = new HashMap<>();
-    String sql = "SELECT material, amount FROM clashmc_mine_rewards WHERE king_id = ?";
-    try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-        stmt.setInt(1, kingId);
-        ResultSet rs = stmt.executeQuery();
-        while (rs.next()) {
-            String name = rs.getString("material");
-            int amount = rs.getInt("amount");
-
-            MineMaterialType type = MineMaterialType.fromName(name);
-            if (type != null) {
-                items.put(type, amount);
+                MineMaterialType type = MineMaterialType.fromName(name);
+                if (type != null) {
+                    items.put(type, amount);
+                }
             }
+        } catch (SQLException e) {
+            LogUtil.logError(plugin, "Fehler bei getAllItems: " + e.getMessage());
+            e.printStackTrace();
         }
-    } catch (SQLException e) {
-        e.printStackTrace();
+        return items;
     }
-    return items;
-}
 
     public void clearMineRewards(int kingId) throws SQLException {
         executeUpdate("DELETE FROM clashmc_mine_rewards WHERE king_id = ?", kingId);
+    }
+
+    // ========== ASYNCHRONE METHODEN (für häufig genutzte Operationen) ==========
+
+    public CompletableFuture<Void> saveOrUpdateItemAsync(int kingId, MineMaterialType material, int amount) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                saveOrUpdateItem(kingId, material, amount);
+            } catch (SQLException e) {
+                LogUtil.logError(plugin, "Async saveOrUpdateItem Fehler: " + e.getMessage());
+                e.printStackTrace();
+            }
+        });
+    }
+
+    public CompletableFuture<Integer> getPickaxeLevelAsync(int kingId) {
+        return querySingleResultAsync(
+            "SELECT pickaxe_level FROM clashmc_mine WHERE king_id = ?",
+            rs -> {
+                try {
+                    return rs.getInt("pickaxe_level");
+                } catch (SQLException e) {
+                    return 0;
+                }
+            },
+            0,
+            kingId
+        );
+    }
+
+    public CompletableFuture<List<MineBoosterType>> getActiveBoostersAsync(int kingId) {
+        return CompletableFuture.supplyAsync(() -> getActiveBoosters(kingId));
     }
 }

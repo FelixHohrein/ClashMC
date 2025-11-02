@@ -1,78 +1,73 @@
 package de.payne.clashmc.database.modules;
 
-
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import de.payne.clashmc.ClashMC;
-import de.payne.clashmc.database.core.DatabaseModule;
+import de.payne.clashmc.database.core.AsyncDatabaseModule;
 import de.payne.clashmc.utils.LogUtil;
 
-public class AttackDatabase extends DatabaseModule {
+public class AttackDatabase extends AsyncDatabaseModule {
 
     public AttackDatabase(Connection connection) {
         super(connection);
     }
 
-    
+    // ========== SYNCHRONE METHODEN ==========
     
     public void createOptInIfNotExists(int playerId) {
-        try (PreparedStatement statement = super.connection.prepareStatement(
-                 "INSERT IGNORE INTO kgmg_attack_optin (king_id, is_online_enabled) VALUES (?, TRUE)"
-             )) {
-            statement.setInt(1, playerId);
-            statement.executeUpdate();
+        try {
+            executeUpdate(
+                "INSERT IGNORE INTO kgmg_attack_optin (king_id, is_online_enabled) VALUES (?, TRUE)",
+                playerId
+            );
         } catch (SQLException e) {
+            LogUtil.logError(plugin, "Fehler bei createOptInIfNotExists: " + e.getMessage());
             e.printStackTrace();
         }
     }
     
     public boolean existsInOptinTable(int kingId) {
-        boolean exists = false;
-        try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT king_id FROM kgmg_attack_optin WHERE king_id = ?")) {
-            ps.setInt(1, kingId);
-            try (ResultSet rs = ps.executeQuery()) {
-                exists = rs.next();
-            }
+        try {
+            return exists("SELECT king_id FROM kgmg_attack_optin WHERE king_id = ?", kingId);
         } catch (SQLException e) {
-            e.printStackTrace(); // oder Logging
+            return false;
         }
-        return exists;
     }
     
-    // Spieler für Online-Kämpfe aktivieren/deaktivieren
     public void setOnlineAttackEnabled(int playerId, boolean enabled) {
-        try (PreparedStatement ps = super.connection.prepareStatement(
-                "REPLACE INTO kgmg_attack_optin (king_id, is_online_enabled, last_updated) VALUES (?, ?, NOW())")) {
-            ps.setInt(1, playerId);
-            ps.setBoolean(2, enabled);
-            ps.executeUpdate();
+        try {
+            executeUpdate(
+                "REPLACE INTO kgmg_attack_optin (king_id, is_online_enabled, last_updated) VALUES (?, ?, NOW())",
+                playerId, enabled
+            );
         } catch (SQLException e) {
+            LogUtil.logError(plugin, "Fehler bei setOnlineAttackEnabled: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     public boolean isOnlineAttackEnabled(int playerId) {
-        try (PreparedStatement ps = super.connection.prepareStatement(
-                "SELECT is_online_enabled FROM kgmg_attack_optin WHERE king_id = ?")) {
-            ps.setInt(1, playerId);
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                return rs.getBoolean("is_online_enabled");
-            }
+        String sql = "SELECT is_online_enabled FROM kgmg_attack_optin WHERE king_id = ?";
+        try {
+            return querySingleResult(sql, rs -> {
+                try {
+                    return rs.getBoolean("is_online_enabled");
+                } catch (SQLException e) {
+                    return false;
+                }
+            }, false, playerId);
         } catch (SQLException e) {
-            e.printStackTrace();
+            return false;
         }
-        return false;
     }
 
-    // Angriff speichern
     public int createAttack(int attackerId, int defenderId, boolean isOnline, double damagePercent, long lootClashCoins, long lootKingCoins) {
-        try (PreparedStatement ps = super.connection.prepareStatement(
+        try (PreparedStatement ps = connection.prepareStatement(
                 "INSERT INTO kgmg_attacks (attacker_id, defender_id, is_online, damage_percent, loot_clash_coins, loot_king_coins) VALUES (?, ?, ?, ?, ?, ?)",
                 Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, attackerId);
@@ -85,46 +80,45 @@ public class AttackDatabase extends DatabaseModule {
 
             ResultSet rs = ps.getGeneratedKeys();
             if (rs.next()) {
-                return rs.getInt(1); // attack_id
+                return rs.getInt(1);
             }
         } catch (SQLException e) {
+            LogUtil.logError(plugin, "Fehler bei createAttack: " + e.getMessage());
             e.printStackTrace();
         }
         return -1;
     }
 
-    // Replay speichern
     public void saveReplay(int attackId, String replayData) {
-        try (PreparedStatement ps = super.connection.prepareStatement(
-                "INSERT INTO kgmg_attack_replays (attack_id, replay_data) VALUES (?, ?)")) {
-            ps.setInt(1, attackId);
-            ps.setString(2, replayData);
-            ps.executeUpdate();
+        try {
+            executeUpdate(
+                "INSERT INTO kgmg_attack_replays (attack_id, replay_data) VALUES (?, ?)",
+                attackId, replayData
+            );
         } catch (SQLException e) {
             LogUtil.logError(ClashMC.getInstance(), "[Replay] Fehler beim Speichern des Replays für Attack ID " + attackId);
             e.printStackTrace();
         }
     }
 
-    // Replay abrufen
     public Optional<String> getReplay(int attackId) {
-        try (PreparedStatement ps = super.connection.prepareStatement(
-                "SELECT replay_data FROM kgmg_attack_replays WHERE attack_id = ?")) {
-            ps.setInt(1, attackId);
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                return Optional.ofNullable(rs.getString("replay_data"));
-            }
+        String sql = "SELECT replay_data FROM kgmg_attack_replays WHERE attack_id = ?";
+        try {
+            return Optional.ofNullable(querySingleResult(sql, rs -> {
+                try {
+                    return rs.getString("replay_data");
+                } catch (SQLException e) {
+                    return null;
+                }
+            }, null, attackId));
         } catch (SQLException e) {
-            e.printStackTrace();
+            return Optional.empty();
         }
-        return Optional.empty();
     }
 
-    // Letzte Angriffe gegen einen Spieler anzeigen
     public List<Integer> getRecentAttackIds(int defenderId, int limit) {
         List<Integer> attacks = new ArrayList<>();
-        try (PreparedStatement ps = super.connection.prepareStatement(
+        try (PreparedStatement ps = connection.prepareStatement(
                 "SELECT id FROM kgmg_attacks WHERE defender_id = ? ORDER BY created_at DESC LIMIT ?")) {
             ps.setInt(1, defenderId);
             ps.setInt(2, limit);
@@ -133,25 +127,25 @@ public class AttackDatabase extends DatabaseModule {
                 attacks.add(rs.getInt("id"));
             }
         } catch (SQLException e) {
+            LogUtil.logError(plugin, "Fehler bei getRecentAttackIds: " + e.getMessage());
             e.printStackTrace();
         }
         return attacks;
     }
     
-    /**
-     * Anzahl aller Spieler, die sich für Online-Angriffe registriert haben (Einträge in kgmg_attack_optin).
-     */
     public int getRegisteredForOnlineAttackCount() {
-        try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT COUNT(*) AS count FROM kgmg_attack_optin WHERE is_online_enabled = TRUE")) {
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("count");
-            }
+        String sql = "SELECT COUNT(*) AS count FROM kgmg_attack_optin WHERE is_online_enabled = TRUE";
+        try {
+            return querySingleResult(sql, rs -> {
+                try {
+                    return rs.getInt("count");
+                } catch (SQLException e) {
+                    return 0;
+                }
+            }, 0);
         } catch (SQLException e) {
-            e.printStackTrace();
+            return 0;
         }
-        return 0;
     }
     
     public int getOnlineRegisteredPlayerCount() {
@@ -161,53 +155,55 @@ public class AttackDatabase extends DatabaseModule {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 int playerId = rs.getInt("king_id");
-                // Prüfen, ob ein Spieler mit dieser playerId online ist
                 if (isPlayerOnlineById(playerId)) {
                     count++;
                 }
             }
         } catch (SQLException e) {
+            LogUtil.logError(plugin, "Fehler bei getOnlineRegisteredPlayerCount: " + e.getMessage());
             e.printStackTrace();
         }
         return count;
     }
     
-    /**
-     * Gibt eine Liste aller Spieler-IDs (king_id) zurück, die für Online-Angriffe registriert sind (is_online_enabled = TRUE).
-     */
     public List<Integer> getRegisteredOnlinePlayerIds() {
         List<Integer> playerIds = new ArrayList<>();
-        try (PreparedStatement ps = super.connection.prepareStatement(
+        try (PreparedStatement ps = connection.prepareStatement(
                 "SELECT king_id FROM kgmg_attack_optin WHERE is_online_enabled = TRUE")) {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 playerIds.add(rs.getInt("king_id"));
             }
         } catch (SQLException e) {
+            LogUtil.logError(plugin, "Fehler bei getRegisteredOnlinePlayerIds: " + e.getMessage());
             e.printStackTrace();
         }
         return playerIds;
     }
     
-    /**
-     * Hilfsmethode, um anhand der playerId (id aus kgmg_players) zu prüfen, ob Spieler aktuell online ist.
-     * Da Bukkit nur UUIDs kennt, brauchst du eine Möglichkeit, playerId -> UUID zu übersetzen.
-     * Falls du eine Datenbankmethode hast, die UUID zu playerId liefert, brauchst du auch die Umkehrung.
-     * 
-     * Hier als Beispiel, du musst die Methode selbst anpassen je nach Datenhaltung.
-     */
     private boolean isPlayerOnlineById(int playerId) {
-        // Beispiel: Hole UUID des Spielers über deine PlayerDatabase
-        UUID uuid = null;
-		try {
-			uuid = ClashMC.getInstance().getDatabaseManager().players().getUUIDIdByKingId(playerId);
-		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-        if (uuid == null) return false;
+        try {
+            UUID uuid = ClashMC.getInstance().getDatabaseManager().players().getUUIDByKingId(playerId);
+            if (uuid == null) return false;
+            Player player = Bukkit.getPlayer(uuid);
+            return player != null && player.isOnline();
+        } catch (SQLException e) {
+            return false;
+        }
+    }
 
-        Player player = Bukkit.getPlayer(uuid);
-        return player != null && player.isOnline();
+    // ========== ASYNCHRONE METHODEN (für kritische Operationen) ==========
+
+    public CompletableFuture<Integer> createAttackAsync(int attackerId, int defenderId, boolean isOnline, 
+                                                         double damagePercent, long lootClashCoins, long lootKingCoins) {
+        return CompletableFuture.supplyAsync(() -> {
+            return createAttack(attackerId, defenderId, isOnline, damagePercent, lootClashCoins, lootKingCoins);
+        });
+    }
+
+    public CompletableFuture<Void> saveReplayAsync(int attackId, String replayData) {
+        return CompletableFuture.runAsync(() -> {
+            saveReplay(attackId, replayData);
+        });
     }
 }
