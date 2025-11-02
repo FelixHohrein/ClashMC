@@ -104,6 +104,7 @@ public class AttackManager {
         long clashCoinsLoot = instance.calculateClashCoinReward();
         long kingCoinsLoot = instance.calculateKingCoinReward();
         String replayJson = instance.getBrokenBlocksAsJsonString();
+        String movementJson = instance.getMovementPointsAsJsonString();
 
         // ASYNC: Lade Player-IDs
         plugin.getDatabaseManager().players().getPlayerIdByUUIDAsync(attackerUuid)
@@ -125,8 +126,9 @@ public class AttackManager {
             .thenAccept(attackId -> {
                 if (attackId == -1) return;
                 
-                // ASYNC: Speichere Replay
+                // ASYNC: Speichere Replay (Blocks + Movement)
                 plugin.getDatabaseManager().attacks().saveReplayAsync(attackId, replayJson);
+                plugin.getDatabaseManager().attacks().saveMovementDataAsync(attackId, movementJson);
             })
             .exceptionally(throwable -> {
                 LogUtil.logError(this.plugin, "[Attacks] Async Fehler: " + throwable.getMessage());

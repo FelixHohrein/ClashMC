@@ -45,8 +45,13 @@ public class AttackInstance {
 
     @Getter
     private final List<BrokenBlock> brokenBlocks = new ArrayList<>();
-
+    
+    @Getter
+    private final List<de.payne.clashmc.replay.MovementPoint> movementPoints = new ArrayList<>();
+    
+    private long attackStartTime;
     private BukkitRunnable actionBarTask;
+    private BukkitRunnable movementTrackingTask;
 
     
     public AttackInstance(UUID attackerUuid, UUID defenderUuid, Location baseLocation, boolean isOnline) {
@@ -70,6 +75,12 @@ public class AttackInstance {
             onFinish.run();
             return;
         }
+
+        // Attack-Start-Time für Movement-Tracking
+        this.attackStartTime = System.currentTimeMillis();
+        
+        // Starte Movement-Tracking
+        startMovementTracking(attacker);
 
         // Attack-Duration aus Config
         final int maxDurationSeconds = ClashMC.getInstance().getConfigManager().getAttackDurationSeconds();
@@ -115,6 +126,8 @@ public class AttackInstance {
             if (actionBarTask != null && !actionBarTask.isCancelled()) {
                 actionBarTask.cancel();
             }
+            // Stoppe Movement-Tracking
+            stopMovementTracking();
             onFinish.run();
         }, 20 * maxDurationSeconds);
     }
@@ -232,6 +245,61 @@ public class AttackInstance {
     
     public String getBrokenBlocksAsJsonString() {
         return getBrokenBlocksAsJsonArray().toString();
+    }
+    
+    /**
+     * Startet das Movement-Tracking für den Angreifer.
+     * Speichert Position alle 10 Ticks (0.5 Sekunden).
+     */
+    private void startMovementTracking(Player attacker) {
+        movementTrackingTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (attacker == null || !attacker.isOnline()) {
+                    cancel();
+                    return;
+                }
+                
+                // Speichere aktuelle Position
+                de.payne.clashmc.replay.MovementPoint point = 
+                    de.payne.clashmc.replay.MovementPoint.fromPlayer(attacker, attackStartTime);
+                movementPoints.add(point);
+            }
+        };
+        
+        // Start: sofort, Repeat: alle 10 Ticks (0.5 Sekunden)
+        movementTrackingTask.runTaskTimer(ClashMC.getInstance(), 0L, 10L);
+    }
+    
+    /**
+     * Stoppt das Movement-Tracking.
+     */
+    private void stopMovementTracking() {
+        if (movementTrackingTask != null && !movementTrackingTask.isCancelled()) {
+            movementTrackingTask.cancel();
+        }
+    }
+    
+    /**
+     * Konvertiert Movement-Points zu JSON.
+     */
+    public JsonArray getMovementPointsAsJsonArray() {
+        JsonArray array = new JsonArray();
+        for (de.payne.clashmc.replay.MovementPoint mp : movementPoints) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("x", mp.getX());
+            obj.addProperty("y", mp.getY());
+            obj.addProperty("z", mp.getZ());
+            obj.addProperty("yaw", mp.getYaw());
+            obj.addProperty("pitch", mp.getPitch());
+            obj.addProperty("timestamp", mp.getTimestamp());
+            array.add(obj);
+        }
+        return array;
+    }
+    
+    public String getMovementPointsAsJsonString() {
+        return getMovementPointsAsJsonArray().toString();
     }
     
     public void cleanup() {

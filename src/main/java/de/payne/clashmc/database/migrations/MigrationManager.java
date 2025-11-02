@@ -108,6 +108,19 @@ public class MigrationManager {
     		        "FOREIGN KEY (attack_id) REFERENCES kgmg_attacks(id) ON DELETE CASCADE" +
     		    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
     		);
+    		
+    		// Migration: Füge movement_data Spalte hinzu (falls nicht vorhanden)
+    		try {
+    		    statement.executeUpdate(
+    		        "ALTER TABLE kgmg_attack_replays ADD COLUMN movement_data LONGTEXT"
+    		    );
+    		    logger.info("[MIGRATION] movement_data Spalte zu kgmg_attack_replays hinzugefügt");
+    		} catch (SQLException e) {
+    		    // Spalte existiert bereits oder anderer Fehler
+    		    if (!e.getMessage().contains("Duplicate column")) {
+    		        logger.warning("[MIGRATION] Fehler beim Hinzufügen von movement_data: " + e.getMessage());
+    		    }
+    		}
 
     		// Online-Angriffsstatus
     		statement.executeUpdate(

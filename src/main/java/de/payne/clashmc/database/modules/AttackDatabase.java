@@ -100,6 +100,16 @@ public class AttackDatabase extends AsyncDatabaseModule {
             e.printStackTrace();
         }
     }
+    
+    /**
+     * Speichert Movement-Daten für einen Angriff (Async).
+     */
+    public java.util.concurrent.CompletableFuture<Void> saveMovementDataAsync(int attackId, String movementData) {
+        return executeUpdateAsync(
+            "UPDATE kgmg_attack_replays SET movement_data = ? WHERE attack_id = ?",
+            movementData, attackId
+        );
+    }
 
     public Optional<String> getReplay(int attackId) {
         String sql = "SELECT replay_data FROM kgmg_attack_replays WHERE attack_id = ?";
