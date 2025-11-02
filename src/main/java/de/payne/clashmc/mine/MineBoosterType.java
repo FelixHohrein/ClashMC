@@ -1,25 +1,54 @@
 package de.payne.clashmc.mine;
 
+import de.payne.clashmc.ClashMC;
 import org.bukkit.Material;
 
 import lombok.Getter;
 
-@Getter
 public enum MineBoosterType {
-	RESOURCE_MULTIPLIER(1000, 30*60, Material.RAW_GOLD, "Gold"), // 30 Min
-	PICKAXE_LEVEL_PLUS(1000, 30*60, Material.DIAMOND, "Diamant"), // 30 MIn
-	NO_COOLDOWN(200, 1*60*60, Material.RAW_IRON, "Eisen"); // 1 stunde
+	RESOURCE_MULTIPLIER(Material.RAW_GOLD, "Gold"),
+	PICKAXE_LEVEL_PLUS(Material.DIAMOND, "Diamant"),
+	NO_COOLDOWN(Material.RAW_IRON, "Eisen");
 	
-	private final int cost;
-	private final long durationInSeconds;
+	@Getter
 	private final Material materialToPay;
+	@Getter
 	private final String anzeigeName;
 	
-	MineBoosterType(int cost, long durationInSeconds, Material materialToPay, String anzeigeName){
-		this.cost = cost;
-		this.durationInSeconds = durationInSeconds;
+	MineBoosterType(Material materialToPay, String anzeigeName){
 		this.materialToPay = materialToPay;
 		this.anzeigeName = anzeigeName;
 	}
 	
+	/**
+	 * Holt die Kosten aus der Config.
+	 */
+	public int getCost() {
+		switch (this) {
+			case RESOURCE_MULTIPLIER:
+				return ClashMC.getInstance().getConfigManager().getMineBoosterResourceMultiplierCost();
+			case PICKAXE_LEVEL_PLUS:
+				return ClashMC.getInstance().getConfigManager().getMineBoosterPickaxeLevelPlusCost();
+			case NO_COOLDOWN:
+				return ClashMC.getInstance().getConfigManager().getMineBoosterNoCooldownCost();
+			default:
+				return 1000;
+		}
+	}
+	
+	/**
+	 * Holt die Dauer in Sekunden aus der Config.
+	 */
+	public long getDurationInSeconds() {
+		switch (this) {
+			case RESOURCE_MULTIPLIER:
+				return ClashMC.getInstance().getConfigManager().getMineBoosterResourceMultiplierDuration();
+			case PICKAXE_LEVEL_PLUS:
+				return ClashMC.getInstance().getConfigManager().getMineBoosterPickaxeLevelPlusDuration();
+			case NO_COOLDOWN:
+				return ClashMC.getInstance().getConfigManager().getMineBoosterNoCooldownDuration();
+			default:
+				return 1800;
+		}
+	}
 }

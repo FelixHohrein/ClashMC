@@ -19,18 +19,23 @@ import java.util.Random;
 
 public class MineResourceReplacer {
 
-    // Basiswahrscheinlichkeiten der Ressourcen (Summe < 1)
-    private static final LinkedHashMap<Material, Double> BASE_CHANCES = new LinkedHashMap<>();
-    static {
-        BASE_CHANCES.put(Material.EMERALD_ORE, 0.01);
-        BASE_CHANCES.put(Material.DIAMOND_ORE, 0.02);
-        BASE_CHANCES.put(Material.GOLD_ORE, 0.05);
-        BASE_CHANCES.put(Material.IRON_ORE, 0.08);
-        BASE_CHANCES.put(Material.COAL_ORE, 0.10);
-        BASE_CHANCES.put(Material.COPPER_ORE, 0.15);
+    /**
+     * Lädt Ore-Chances aus Config.
+     */
+    private static LinkedHashMap<Material, Double> getBaseChances() {
+        LinkedHashMap<Material, Double> chances = new LinkedHashMap<>();
+        chances.put(Material.EMERALD_ORE, ClashMC.getInstance().getConfigManager().getMineOreChance("emerald"));
+        chances.put(Material.DIAMOND_ORE, ClashMC.getInstance().getConfigManager().getMineOreChance("diamond"));
+        chances.put(Material.GOLD_ORE, ClashMC.getInstance().getConfigManager().getMineOreChance("gold"));
+        chances.put(Material.IRON_ORE, ClashMC.getInstance().getConfigManager().getMineOreChance("iron"));
+        chances.put(Material.COAL_ORE, ClashMC.getInstance().getConfigManager().getMineOreChance("coal"));
+        chances.put(Material.COPPER_ORE, ClashMC.getInstance().getConfigManager().getMineOreChance("copper"));
+        return chances;
     }
 
-    private static final double MAX_REPLACE_PERCENTAGE = 0.5; // 80% max Ersetzung
+    private static double getMaxReplacePercentage() {
+        return ClashMC.getInstance().getConfigManager().getMineOreMaxReplacePercentage();
+    }
 
     /**
      * Ersetzt Stone-Blöcke im Clipboard prozentual durch wertvolle Blöcke, abhängig vom Spielerlevel
@@ -45,12 +50,16 @@ public class MineResourceReplacer {
         if (clipboard == null) return;
         if (maxLevel <= 0) maxLevel = 1;
 
-        double replaceChance = ((double) playerLevel / maxLevel) * MAX_REPLACE_PERCENTAGE;
-        replaceChance = Math.min(replaceChance, MAX_REPLACE_PERCENTAGE);
+        // Werte aus Config laden
+        double maxReplacePercentage = getMaxReplacePercentage();
+        LinkedHashMap<Material, Double> baseChances = getBaseChances();
+
+        double replaceChance = ((double) playerLevel / maxLevel) * maxReplacePercentage;
+        replaceChance = Math.min(replaceChance, maxReplacePercentage);
 
         Map<Material, Double> adjustedChances = new LinkedHashMap<>();
         double totalChance = 0;
-        for (Map.Entry<Material, Double> entry : BASE_CHANCES.entrySet()) {
+        for (Map.Entry<Material, Double> entry : baseChances.entrySet()) {
             double multiplier = upgradeMultipliers.getOrDefault(entry.getKey(), 1.0);
             double adjusted = entry.getValue() * multiplier;
             adjustedChances.put(entry.getKey(), adjusted);

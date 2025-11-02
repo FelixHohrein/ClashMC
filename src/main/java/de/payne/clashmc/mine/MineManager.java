@@ -40,15 +40,17 @@ public class MineManager {
             return;
         }
 
-        int spacing = 40; // Abstand zwischen Minen
-        int countX = 10;
-        int countZ = 10;
+        // Grid-System aus Config
+        int spacing = ClashMC.getInstance().getConfigManager().getMineInstanceSpacing();
+        int countX = ClashMC.getInstance().getConfigManager().getMineInstanceSlotsX();
+        int countZ = ClashMC.getInstance().getConfigManager().getMineInstanceSlotsZ();
+        int spawnHeight = ClashMC.getInstance().getConfigManager().getMineInstanceSpawnHeight();
 
         for (int x = 0; x < countX; x++) {
             for (int z = 0; z < countZ; z++) {
                 int baseX = x * spacing;
                 int baseZ = z * spacing;
-                Location origin = new Location(mineWorld, baseX, 50, baseZ);
+                Location origin = new Location(mineWorld, baseX, spawnHeight, baseZ);
                 availableMineOrigins.add(origin);
             }
         }

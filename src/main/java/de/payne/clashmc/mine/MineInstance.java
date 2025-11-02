@@ -49,7 +49,7 @@ public class MineInstance {
     private int timerTaskId = -1;
     
     private final MineManager mineManager;
-    private final int timeToMine = 10;
+    private final int timeToMine; // Aus Config geladen
     private static final Vector RELATIVE_TELEPORT_OFFSET = new Vector(9, 10, 29);
     
     @Getter
@@ -61,6 +61,8 @@ public class MineInstance {
         this.origin = origin;
         this.mineManager = mineManager;
         this.collectedItems = Maps.newHashMap();
+        // Session-Duration aus Config
+        this.timeToMine = ClashMC.getInstance().getConfigManager().getMineSessionDurationMinutes();
     }
 
     public void start() {

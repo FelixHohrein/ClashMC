@@ -108,7 +108,8 @@ public class MineRewardClickListener implements Listener {
         // Spitzhacke-Upgrade (Slot 40)
         if (slot == 40) {
             int currentLevel = mineDb.getPickaxeLevel(kingID);
-            int upgradeCost = (int) (75 * Math.pow(1.8, currentLevel));
+            // Upgrade-Kosten aus Config
+            int upgradeCost = ClashMC.getInstance().getConfigManager().calculatePickaxeUpgradeCost(currentLevel);
             int coal = items.getOrDefault(MineMaterialType.COAL, 0);
 
             if (coal < upgradeCost) {

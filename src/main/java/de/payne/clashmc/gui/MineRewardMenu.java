@@ -167,7 +167,8 @@ public class MineRewardMenu {
 
         // Spitzhacken-Upgrade-Anzeige (Slot 40)
         int pickaxeLevel = ClashMC.getInstance().getDatabaseManager().mine().getPickaxeLevel(this.kingID);
-        int upgradeCost = (int) (75 * Math.pow(1.8, pickaxeLevel));
+        // Upgrade-Kosten aus Config
+        int upgradeCost = ClashMC.getInstance().getConfigManager().calculatePickaxeUpgradeCost(pickaxeLevel);
 
         int efficiency = pickaxeLevel / 2;
         int fortune = pickaxeLevel - efficiency;
