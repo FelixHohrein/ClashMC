@@ -1,0 +1,18 @@
+main: de.payne.clashmc.ClashMC
+name: ${project.name}
+version: ${project.version}
+description: ${project.description}
+load: POSTWORLD
+depend: 
+   - WorldEdit
+   - Multiverse-Core
+author: ${project.properties.author}
+api-version: 1.21
+commands:
+  clash:
+   description: basecommand
+   aliases:
+    - clashmc
+permissions:
+  clashmc.admin:
+   description: enable admin features

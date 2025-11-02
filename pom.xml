@@ -1,0 +1,149 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>de.payne</groupId>
+  <artifactId>ClashMC</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>ClashMC</name>
+  <description>Clash of KING</description>
+<!-- CREDITS  -->
+  <developers>
+  	<developer>
+  		<name>Felix Payne</name>
+  	</developer>
+  </developers>
+  
+<!--  AUTHOR AND MAINCLASS USED IN PLUGIN.YML -->
+  <properties>
+  	<author>Felix Payne</author>
+    <mainClass>de.payne.clashmc.ClashMC</mainClass>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	<!-- Removes warnings -->
+  </properties>
+  
+<!-- REPOSITORIES  -->
+  <repositories>
+    <!-- FOR HOLOGRAPHIC DISPLAYS  -->
+	<repository>
+   	 <id>codemc-repo</id>
+   	 <url>https://repo.codemc.io/repository/maven-public/</url>
+	</repository>
+    <!-- FOR PAPERMC  -->
+  	<repository>
+    <id>papermc</id>
+    <url>https://repo.papermc.io/repository/maven-public/</url>
+	</repository>
+  	<!-- FOR GITHUB PROJECTS  -->
+  	<repository>
+  	  	<id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+  	</repository>
+  	<repository>
+  		<id>EngineHub Repository</id>
+  		<url>https://maven.enginehub.org/repo/</url>
+  	</repository>
+  </repositories>
+  <!-- DEPENDENCIES  -->
+  <dependencies>
+  <!-- FOR PAPER  -->
+	<dependency>
+      <groupId>io.papermc.paper</groupId>
+      <artifactId>paper-api</artifactId>
+      <version>1.21.5-R0.1-SNAPSHOT</version>
+      <scope>provided</scope>
+	</dependency>
+    <!-- FOR HOLOGRAPHIC DISPLAYS  -->
+	<dependency>
+    	<groupId>com.gmail.filoghost.holographicdisplays</groupId>
+    	<artifactId>holographicdisplays-api</artifactId>
+    	<version>2.4.9</version>
+    	<scope>provided</scope>
+	</dependency>
+  	<!-- FOR MYSQL -->
+	<dependency>
+    	<groupId>com.mysql</groupId>
+    	<artifactId>mysql-connector-j</artifactId>
+  	 	 <version>8.0.33</version>
+	</dependency>
+	<!-- FOR AUTHLIB  -->
+      <dependency> 
+        <groupId>com.mojang</groupId>
+        <artifactId>authlib</artifactId>
+        <version>3.13.56</version>
+        <scope>provided</scope>
+    </dependency> 
+	<!-- FOR LOMBOK  -->
+	<dependency>
+    	<groupId>org.projectlombok</groupId>
+    	<artifactId>lombok</artifactId>
+    	<version>1.18.38</version>
+	</dependency>
+	<!-- FOR Worldedit  -->
+	<!-- https://mvnrepository.com/artifact/com.sk89q.worldedit/worldedit-bukkit -->
+	<dependency>
+    <groupId>com.sk89q.worldedit</groupId>
+    <artifactId>worldedit-bukkit</artifactId>
+    <version>7.3.13</version>
+    <scope>provided</scope>
+	</dependency>
+		<!-- FOR SPIGOT_SERVER DATA  -->
+<!-- 	<dependency>
+		<groupId>com.destroystokyo.paper</groupId>
+		<artifactId>paper</artifactId>
+		<version>1.16.5-R0.1-SNAPSHOT</version>
+		<scope>system</scope>
+		<systemPath>C:\Users\Felix\.m2\repository\com\destroystokyo\paper\paper\1.16.5-R0.1-SNAPSHOT\paper-1.16.5-R0.1-SNAPSHOT.jar</systemPath>
+	</dependency> -->
+  </dependencies>
+  
+<build>
+    <sourceDirectory>src/main/java</sourceDirectory>
+    <defaultGoal>clean install</defaultGoal>
+    
+    <resources>
+      <resource>
+        <directory>${basedir}/src/main/resources</directory>
+        <filtering>true</filtering>
+        	<includes>
+        		<include>plugin.yml</include>
+        		<include>database.yml</include>
+         		<include>village.yml</include>
+         		<include>schematics.yml</include>
+         		<include>replay.yml</include>        		
+        	</includes>
+      </resource>
+      <resource>
+      	<directory>src/main/resources</directory>
+      	<filtering>false</filtering>
+      	<excludes>
+          <exclude>**/*.java</exclude>
+          <exclude>*.yml</exclude>
+        </excludes>
+      </resource>
+    </resources>
+    
+    <!-- COMPILE  -->
+	<plugins>
+		<!-- Sets the Java version to 21 -->
+		<plugin>
+			<groupId>org.apache.maven.plugins</groupId>
+			<artifactId>maven-compiler-plugin</artifactId>
+			<version>3.11.0</version>
+			<configuration>
+				<source>21</source>
+				<target>21</target>
+				<encoding>UTF-8</encoding>
+			</configuration>
+		</plugin>
+		<!-- Sets the custom JARfile name (Project name without spaces is good) -->
+		<plugin>
+			<groupId>org.apache.maven.plugins</groupId>
+			<artifactId>maven-jar-plugin</artifactId>
+			<version>3.2.0</version>
+			<configuration>
+				<finalName>${project.name}</finalName>
+			</configuration>
+		</plugin>
+	</plugins>
+  </build>
+
+</project>
