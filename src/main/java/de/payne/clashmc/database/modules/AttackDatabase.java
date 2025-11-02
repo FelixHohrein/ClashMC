@@ -110,6 +110,109 @@ public class AttackDatabase extends AsyncDatabaseModule {
             movementData, attackId
         );
     }
+    
+    /**
+     * Lädt Replays für einen Spieler (Angreifer + Verteidiger).
+     * Spieler sehen nur Replays <7 Tage, Admins sehen alle.
+     */
+    public java.util.List<de.payne.clashmc.replay.ReplayData> getReplaysByPlayer(int kingId, boolean isAdmin, int maxDays) {
+        java.util.List<de.payne.clashmc.replay.ReplayData> replays = new java.util.ArrayList<>();
+        
+        String sql;
+        if (isAdmin) {
+            // Admins sehen ALLE Replays
+            sql = "SELECT a.id, a.attacker_id, a.defender_id, a.is_online, a.damage_percent, " +
+                  "a.loot_clash_coins, a.loot_king_coins, a.created_at, " +
+                  "r.replay_data, r.movement_data " +
+                  "FROM kgmg_attacks a " +
+                  "LEFT JOIN kgmg_attack_replays r ON a.id = r.attack_id " +
+                  "WHERE r.replay_data IS NOT NULL " +
+                  "ORDER BY a.created_at DESC";
+        } else {
+            // Spieler sehen nur eigene Replays <maxDays Tage
+            sql = "SELECT a.id, a.attacker_id, a.defender_id, a.is_online, a.damage_percent, " +
+                  "a.loot_clash_coins, a.loot_king_coins, a.created_at, " +
+                  "r.replay_data, r.movement_data " +
+                  "FROM kgmg_attacks a " +
+                  "LEFT JOIN kgmg_attack_replays r ON a.id = r.attack_id " +
+                  "WHERE (a.attacker_id = ? OR a.defender_id = ?) " +
+                  "AND r.replay_data IS NOT NULL " +
+                  "AND a.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) " +
+                  "ORDER BY a.created_at DESC";
+        }
+        
+        try {
+            if (isAdmin) {
+                try (java.sql.PreparedStatement stmt = connection.prepareStatement(sql)) {
+                    try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                        while (rs.next()) {
+                            replays.add(mapReplayData(rs));
+                        }
+                    }
+                }
+            } else {
+                try (java.sql.PreparedStatement stmt = connection.prepareStatement(sql)) {
+                    stmt.setInt(1, kingId);
+                    stmt.setInt(2, kingId);
+                    stmt.setInt(3, maxDays);
+                    try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                        while (rs.next()) {
+                            replays.add(mapReplayData(rs));
+                        }
+                    }
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            LogUtil.logError(ClashMC.getInstance(), "[Replay] Fehler beim Laden von Replays: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return replays;
+    }
+    
+    /**
+     * Lädt ein spezifisches Replay.
+     */
+    public java.util.Optional<de.payne.clashmc.replay.ReplayData> getReplayData(int attackId) {
+        String sql = "SELECT a.id, a.attacker_id, a.defender_id, a.is_online, a.damage_percent, " +
+                     "a.loot_clash_coins, a.loot_king_coins, a.created_at, " +
+                     "r.replay_data, r.movement_data " +
+                     "FROM kgmg_attacks a " +
+                     "LEFT JOIN kgmg_attack_replays r ON a.id = r.attack_id " +
+                     "WHERE a.id = ?";
+        
+        try (java.sql.PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, attackId);
+            try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return java.util.Optional.of(mapReplayData(rs));
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            LogUtil.logError(ClashMC.getInstance(), "[Replay] Fehler beim Laden von Replay " + attackId + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return java.util.Optional.empty();
+    }
+    
+    /**
+     * Mappt ResultSet zu ReplayData.
+     */
+    private de.payne.clashmc.replay.ReplayData mapReplayData(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return new de.payne.clashmc.replay.ReplayData(
+            rs.getInt("id"),
+            rs.getInt("attacker_id"),
+            rs.getInt("defender_id"),
+            rs.getBoolean("is_online"),
+            rs.getDouble("damage_percent"),
+            rs.getLong("loot_clash_coins"),
+            rs.getLong("loot_king_coins"),
+            rs.getTimestamp("created_at"),
+            rs.getString("replay_data"),
+            rs.getString("movement_data")
+        );
+    }
 
     public Optional<String> getReplay(int attackId) {
         String sql = "SELECT replay_data FROM kgmg_attack_replays WHERE attack_id = ?";

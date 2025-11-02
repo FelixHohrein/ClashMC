@@ -35,7 +35,7 @@
   	<!-- FOR GITHUB PROJECTS  -->
   	<repository>
   	  	<id>jitpack.io</id>
-        <url>https://jitpack.io</url>
+  	  	<url>https://jitpack.io</url>
   	</repository>
   	<repository>
   		<id>EngineHub Repository</id>
@@ -76,7 +76,9 @@
         <artifactId>authlib</artifactId>
         <version>3.13.56</version>
         <scope>provided</scope>
-    </dependency> 
+    </dependency>
+    <!-- FOR REPLAY NPC SYSTEM -->
+    <!-- Using Paper's built-in NMS access - no external dependency needed! --> 
 	<!-- FOR LOMBOK  -->
 	<dependency>
     	<groupId>org.projectlombok</groupId>

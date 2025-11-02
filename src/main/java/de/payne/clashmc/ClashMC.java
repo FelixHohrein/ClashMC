@@ -68,6 +68,8 @@ public class ClashMC extends JavaPlugin {
 	@Getter
 	private AttackManager attackManager;
 	@Getter
+	private de.payne.clashmc.replay.ReplayWorldManager replayWorldManager;
+	@Getter
 	private EquipmentManager equipmentManager;
 	
 	private MigrationManager migrationManager;
@@ -117,6 +119,8 @@ public class ClashMC extends JavaPlugin {
         this.mineManager = new MineManager(this);
         this.attackManager = new AttackManager(this);
         this.equipmentManager = new EquipmentManager();
+        this.replayWorldManager = new de.payne.clashmc.replay.ReplayWorldManager(this);
+        getLogger().info("Replay-System initialisiert");
         
         this.registerCommands();
         this.registerListener();
