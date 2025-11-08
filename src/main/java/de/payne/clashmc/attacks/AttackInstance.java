@@ -2,7 +2,9 @@ package de.payne.clashmc.attacks;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
@@ -47,11 +49,21 @@ public class AttackInstance {
     private final List<BrokenBlock> brokenBlocks = new ArrayList<>();
     
     @Getter
-    private final List<de.payne.clashmc.replay.MovementPoint> movementPoints = new ArrayList<>();
+    private final List<de.payne.clashmc.replay.MovementPoint> attackerMovementPoints = new ArrayList<>();
+    @Getter
+    private final List<de.payne.clashmc.replay.MovementPoint> defenderMovementPoints = new ArrayList<>();
+    @Getter
+    private final List<de.payne.clashmc.replay.CombatEvent> combatEvents = new ArrayList<>();
     
     private long attackStartTime;
     private BukkitRunnable actionBarTask;
-    private BukkitRunnable movementTrackingTask;
+    private BukkitRunnable attackerMovementTrackingTask;
+    private BukkitRunnable defenderMovementTrackingTask;
+    
+    // Tod-Tracking: Map<UUID, AnzahlTode>
+    private final Map<UUID, Integer> deathCounts = new HashMap<>();
+    // Cooldown-Tracking: Map<UUID, System.currentTimeMillis() wann Respawn möglich>
+    private final Map<UUID, Long> respawnCooldowns = new HashMap<>();
 
     
     public AttackInstance(UUID attackerUuid, UUID defenderUuid, Location baseLocation, boolean isOnline) {
@@ -79,8 +91,16 @@ public class AttackInstance {
         // Attack-Start-Time für Movement-Tracking
         this.attackStartTime = System.currentTimeMillis();
         
-        // Starte Movement-Tracking
-        startMovementTracking(attacker);
+        // Starte Movement-Tracking für Angreifer
+        startAttackerMovementTracking(attacker);
+        
+        // Starte Movement-Tracking für Verteidiger (nur bei Online-Angriffen)
+        if (isOnline) {
+            Player defender = Bukkit.getPlayer(defenderUuid);
+            if (defender != null && defender.isOnline()) {
+                startDefenderMovementTracking(defender);
+            }
+        }
 
         // Attack-Duration aus Config
         final int maxDurationSeconds = ClashMC.getInstance().getConfigManager().getAttackDurationSeconds();
@@ -218,12 +238,14 @@ public class AttackInstance {
     //zu broken blocks hinzufügen
     public void addBrokenBlock(Block block) {
         Location relativeLoc = block.getLocation().clone().subtract(baseLocation);
+        // Timestamp relativ zum Angriffsstart (wie bei Movement-Points)
+        long relativeTimestamp = System.currentTimeMillis() - attackStartTime;
         brokenBlocks.add(new BrokenBlock(
             block.getType().name(),
             relativeLoc.getBlockX(),
             relativeLoc.getBlockY(),
             relativeLoc.getBlockZ(),
-            System.currentTimeMillis()
+            relativeTimestamp
         ));
     }
     
@@ -251,8 +273,8 @@ public class AttackInstance {
      * Startet das Movement-Tracking für den Angreifer.
      * Speichert Position alle 10 Ticks (0.5 Sekunden).
      */
-    private void startMovementTracking(Player attacker) {
-        movementTrackingTask = new BukkitRunnable() {
+    private void startAttackerMovementTracking(Player attacker) {
+        attackerMovementTrackingTask = new BukkitRunnable() {
             @Override
             public void run() {
                 if (attacker == null || !attacker.isOnline()) {
@@ -260,32 +282,63 @@ public class AttackInstance {
                     return;
                 }
                 
-                // Speichere aktuelle Position
+                // Speichere aktuelle Position (relativ zur baseLocation)
                 de.payne.clashmc.replay.MovementPoint point = 
-                    de.payne.clashmc.replay.MovementPoint.fromPlayer(attacker, attackStartTime);
-                movementPoints.add(point);
+                    de.payne.clashmc.replay.MovementPoint.fromPlayer(attacker, attackStartTime, baseLocation);
+                attackerMovementPoints.add(point);
             }
         };
         
         // Start: sofort, Repeat: alle 10 Ticks (0.5 Sekunden)
-        movementTrackingTask.runTaskTimer(ClashMC.getInstance(), 0L, 10L);
+        attackerMovementTrackingTask.runTaskTimer(ClashMC.getInstance(), 0L, 10L);
     }
     
     /**
-     * Stoppt das Movement-Tracking.
+     * Startet das Movement-Tracking für den Verteidiger (nur bei Online-Angriffen).
+     * Speichert Position alle 10 Ticks (0.5 Sekunden).
+     */
+    private void startDefenderMovementTracking(Player defender) {
+        defenderMovementTrackingTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (defender == null || !defender.isOnline()) {
+                    cancel();
+                    return;
+                }
+                
+                // Speichere aktuelle Position (relativ zur baseLocation)
+                de.payne.clashmc.replay.MovementPoint point = 
+                    de.payne.clashmc.replay.MovementPoint.fromPlayer(defender, attackStartTime, baseLocation);
+                defenderMovementPoints.add(point);
+            }
+        };
+        
+        // Start: sofort, Repeat: alle 10 Ticks (0.5 Sekunden)
+        defenderMovementTrackingTask.runTaskTimer(ClashMC.getInstance(), 0L, 10L);
+    }
+    
+    /**
+     * Stoppt das Movement-Tracking für beide Spieler.
      */
     private void stopMovementTracking() {
-        if (movementTrackingTask != null && !movementTrackingTask.isCancelled()) {
-            movementTrackingTask.cancel();
+        if (attackerMovementTrackingTask != null && !attackerMovementTrackingTask.isCancelled()) {
+            attackerMovementTrackingTask.cancel();
+        }
+        if (defenderMovementTrackingTask != null && !defenderMovementTrackingTask.isCancelled()) {
+            defenderMovementTrackingTask.cancel();
         }
     }
     
     /**
-     * Konvertiert Movement-Points zu JSON.
+     * Konvertiert Movement-Points zu JSON (beide Spieler).
+     * Format: {"attacker": [...], "defender": [...], "combat": [...]}
      */
-    public JsonArray getMovementPointsAsJsonArray() {
-        JsonArray array = new JsonArray();
-        for (de.payne.clashmc.replay.MovementPoint mp : movementPoints) {
+    public JsonObject getMovementPointsAsJsonObject() {
+        JsonObject root = new JsonObject();
+        
+        // Angreifer Movement-Points
+        JsonArray attackerArray = new JsonArray();
+        for (de.payne.clashmc.replay.MovementPoint mp : attackerMovementPoints) {
             JsonObject obj = new JsonObject();
             obj.addProperty("x", mp.getX());
             obj.addProperty("y", mp.getY());
@@ -293,13 +346,36 @@ public class AttackInstance {
             obj.addProperty("yaw", mp.getYaw());
             obj.addProperty("pitch", mp.getPitch());
             obj.addProperty("timestamp", mp.getTimestamp());
-            array.add(obj);
+            attackerArray.add(obj);
         }
-        return array;
+        root.add("attacker", attackerArray);
+        
+        // Verteidiger Movement-Points (nur bei Online-Angriffen)
+        if (isOnline && !defenderMovementPoints.isEmpty()) {
+            JsonArray defenderArray = new JsonArray();
+            for (de.payne.clashmc.replay.MovementPoint mp : defenderMovementPoints) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("x", mp.getX());
+                obj.addProperty("y", mp.getY());
+                obj.addProperty("z", mp.getZ());
+                obj.addProperty("yaw", mp.getYaw());
+                obj.addProperty("pitch", mp.getPitch());
+                obj.addProperty("timestamp", mp.getTimestamp());
+                defenderArray.add(obj);
+            }
+            root.add("defender", defenderArray);
+        }
+        
+        // Combat-Events (nur bei Online-Angriffen)
+        if (isOnline && !combatEvents.isEmpty()) {
+            root.add("combat", getCombatEventsAsJsonArray());
+        }
+        
+        return root;
     }
     
     public String getMovementPointsAsJsonString() {
-        return getMovementPointsAsJsonArray().toString();
+        return getMovementPointsAsJsonObject().toString();
     }
     
     public void cleanup() {
@@ -401,5 +477,137 @@ public class AttackInstance {
 
     public boolean isOnline() {
         return isOnline;
+    }
+    
+    /**
+     * Wird aufgerufen wenn ein Spieler während des Angriffs stirbt.
+     * Gibt true zurück wenn Respawn möglich ist, false wenn noch Cooldown.
+     */
+    public boolean handlePlayerDeath(UUID playerUuid) {
+        // Erhöhe Tod-Zähler
+        int deathCount = deathCounts.getOrDefault(playerUuid, 0) + 1;
+        deathCounts.put(playerUuid, deathCount);
+        
+        // Berechne Cooldown: Start bei 3 Sekunden, steigt mit jedem Tod
+        long cooldownSeconds = 3L + (deathCount - 1); // 3, 4, 5, 6, ...
+        long cooldownMillis = cooldownSeconds * 1000L;
+        long respawnTime = System.currentTimeMillis() + cooldownMillis;
+        
+        respawnCooldowns.put(playerUuid, respawnTime);
+        
+        // Prüfe ob Respawn sofort möglich ist
+        if (cooldownSeconds == 3) {
+            // Erster Tod: Sofort Respawn möglich
+            return true;
+        }
+        
+        // Für spätere Tode: Cooldown wird in handleRespawn geprüft
+        return false;
+    }
+    
+    /**
+     * Prüft ob Respawn möglich ist und führt ihn durch.
+     * Gibt true zurück wenn Respawn durchgeführt wurde, false wenn noch Cooldown.
+     */
+    public boolean handleRespawn(UUID playerUuid) {
+        Long respawnTime = respawnCooldowns.get(playerUuid);
+        if (respawnTime == null) {
+            // Kein Cooldown gesetzt, Respawn sofort möglich
+            return respawnPlayer(playerUuid);
+        }
+        
+        long now = System.currentTimeMillis();
+        if (now >= respawnTime) {
+            // Cooldown abgelaufen, Respawn möglich
+            return respawnPlayer(playerUuid);
+        } else {
+            // Noch Cooldown
+            long remainingSeconds = (respawnTime - now) / 1000L + 1;
+            Player player = Bukkit.getPlayer(playerUuid);
+            if (player != null && player.isOnline()) {
+                player.sendMessage("§cRespawn in §e" + remainingSeconds + " §cSekunden...");
+            }
+            return false;
+        }
+    }
+    
+    /**
+     * Führt den Respawn durch: Teleportiert Spieler und gibt Loadout.
+     */
+    private boolean respawnPlayer(UUID playerUuid) {
+        Player player = Bukkit.getPlayer(playerUuid);
+        if (player == null || !player.isOnline()) {
+            return false;
+        }
+        
+        try {
+            // Bestimme Spawn-Location und Loadout basierend auf Rolle
+            Location spawnLoc;
+            int playerId;
+            
+            if (playerUuid.equals(attackerUuid)) {
+                spawnLoc = getAttackerSpawn();
+                playerId = ClashMC.getInstance().getDatabaseManager().players().getPlayerIdByUUID(attackerUuid);
+                ClashMC.getInstance().getEquipmentManager().giveAttackerLoadout(player, playerId);
+            } else if (playerUuid.equals(defenderUuid) && isOnline) {
+                spawnLoc = getDefenderSpawn();
+                playerId = ClashMC.getInstance().getDatabaseManager().players().getPlayerIdByUUID(defenderUuid);
+                ClashMC.getInstance().getEquipmentManager().giveDefenderLoadout(player, playerId);
+            } else {
+                // Defender ist offline, kein Respawn möglich
+                return false;
+            }
+            
+            // Teleportiere und setze Stats
+            player.teleport(spawnLoc);
+            player.setGameMode(GameMode.ADVENTURE);
+            player.setFoodLevel(20);
+            player.setHealth(20.0);
+            player.setInvulnerable(false);
+            
+            int deathCount = deathCounts.getOrDefault(playerUuid, 0);
+            player.sendMessage("§aDu wurdest wiederbelebt! §7(Tode: §c" + deathCount + "§7)");
+            
+            return true;
+            
+        } catch (SQLException e) {
+            LogUtil.logError(ClashMC.getInstance(), "[AttackInstance] Fehler beim Respawn: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    /**
+     * Prüft ob ein Spieler in diesem Angriff ist.
+     */
+    public boolean isPlayerInAttack(UUID playerUuid) {
+        return playerUuid.equals(attackerUuid) || (isOnline && playerUuid.equals(defenderUuid));
+    }
+    
+    /**
+     * Fügt ein Combat-Event hinzu.
+     */
+    public void addCombatEvent(boolean isAttackerHitting, Location location, double damage) {
+        combatEvents.add(de.payne.clashmc.replay.CombatEvent.fromDamage(
+            isAttackerHitting, location, damage, attackStartTime, baseLocation
+        ));
+    }
+    
+    /**
+     * Konvertiert Combat-Events zu JSON.
+     */
+    public JsonArray getCombatEventsAsJsonArray() {
+        JsonArray array = new JsonArray();
+        for (de.payne.clashmc.replay.CombatEvent event : combatEvents) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("attacker_id", event.getAttackerId());
+            obj.addProperty("x", event.getX());
+            obj.addProperty("y", event.getY());
+            obj.addProperty("z", event.getZ());
+            obj.addProperty("damage", event.getDamage());
+            obj.addProperty("timestamp", event.getTimestamp());
+            array.add(obj);
+        }
+        return array;
     }
 }

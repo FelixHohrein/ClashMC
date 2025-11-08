@@ -10,6 +10,8 @@ import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.List;
+
 /**
  * Verwaltet eine aktive Replay-Session für einen Spieler.
  */
@@ -29,21 +31,37 @@ public class ReplayInstance {
     private ReplayPlayer replayPlayer;
     
     public ReplayInstance(ClashMC plugin, Player viewer, ReplayData replayData) {
+        LogUtil.logInfo(plugin, "[Replay] ===== REPLAY INSTANCE ERSTELLT =====");
+        LogUtil.logInfo(plugin, "[Replay] Viewer: " + viewer.getName());
+        LogUtil.logInfo(plugin, "[Replay] ReplayData: AttackID=" + replayData.getAttackId());
+        
         this.plugin = plugin;
         this.viewer = viewer;
         this.replayData = replayData;
+        
+        LogUtil.logInfo(plugin, "[Replay] Hole Replay-Slot...");
         this.baseLocation = plugin.getReplayWorldManager().claimReplaySlot();
         
         if (baseLocation == null) {
+            LogUtil.logError(plugin, "[Replay] FEHLER: Keine freien Replay-Slots verfügbar!");
             throw new RuntimeException("Keine freien Replay-Slots verfügbar!");
         }
+        
+        LogUtil.logInfo(plugin, "[Replay] Replay-Slot erhalten: " + baseLocation);
+        LogUtil.logInfo(plugin, "[Replay] ReplayInstance-Konstruktor beendet!");
     }
     
     /**
      * Startet die Replay-Wiedergabe.
      */
     public void start() {
+        LogUtil.logInfo(plugin, "[Replay] ===== REPLAY INSTANCE START =====");
+        LogUtil.logInfo(plugin, "[Replay] Viewer: " + viewer.getName());
+        LogUtil.logInfo(plugin, "[Replay] ReplayData: AttackID=" + replayData.getAttackId() + ", AttackerID=" + replayData.getAttackerId() + ", DefenderID=" + replayData.getDefenderId());
+        LogUtil.logInfo(plugin, "[Replay] BaseLocation: " + baseLocation);
+        
         if (!viewer.isOnline()) {
+            LogUtil.logError(plugin, "[Replay] Viewer ist nicht online!");
             cleanup();
             return;
         }
@@ -52,15 +70,25 @@ public class ReplayInstance {
         originalGameMode = viewer.getGameMode();
         originalLocation = viewer.getLocation().clone();
         
+        LogUtil.logInfo(plugin, "[Replay] Lade Verteidiger-Level aus Database...");
+        LogUtil.logInfo(plugin, "[Replay] DefenderID: " + replayData.getDefenderId());
+        
         // Lade Verteidiger-Level aus Database
         plugin.getDatabaseManager().villages().getVillageLevelAsync(replayData.getDefenderId())
             .thenAccept(defenderLevel -> {
+                LogUtil.logInfo(plugin, "[Replay] Verteidiger-Level geladen: " + defenderLevel);
+                LogUtil.logInfo(plugin, "[Replay] Schedule Server-Thread Task...");
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     try {
+                        LogUtil.logInfo(plugin, "[Replay] ===== SERVER THREAD TASK GESTARTET =====");
+                        LogUtil.logInfo(plugin, "[Replay] Starte Replay auf Server-Thread...");
+                        
                         // Spawne Verteidiger-Dorf
+                        LogUtil.logInfo(plugin, "[Replay] Spawne Verteidiger-Dorf...");
                         spawnDefenderVillage(defenderLevel);
                         
                         // Teleportiere Viewer in Vogelperspektive
+                        LogUtil.logInfo(plugin, "[Replay] Teleportiere Viewer...");
                         teleportViewerToSkyView();
                         
                         // Setze Spectator-Mode
@@ -69,14 +97,17 @@ public class ReplayInstance {
                         viewer.setFlying(true);
                         
                         // Gebe Replay-Controls
+                        LogUtil.logInfo(plugin, "[Replay] Gebe Replay-Controls...");
                         giveReplayControls();
                         
                         // Starte Replay-Player
+                        LogUtil.logInfo(plugin, "[Replay] Erstelle ReplayPlayer...");
                         replayPlayer = new ReplayPlayer(plugin, this, replayData);
                         
                         // Registriere bei Controls-Listener
                         de.payne.clashmc.listeners.player.ReplayControlsListener.registerReplay(viewer, ReplayInstance.this);
                         
+                        LogUtil.logInfo(plugin, "[Replay] Starte ReplayPlayer...");
                         replayPlayer.start();
                         
                         viewer.sendMessage("§a§lReplay gestartet!");
@@ -101,17 +132,32 @@ public class ReplayInstance {
     }
     
     private void spawnDefenderVillage(int level) {
+        LogUtil.logInfo(plugin, "[Replay] ===== SPAWN DEFENDER VILLAGE =====");
+        LogUtil.logInfo(plugin, "[Replay] Level: " + level);
+        LogUtil.logInfo(plugin, "[Replay] BaseLocation: " + baseLocation);
+        
         SchematicManager schematicManager = plugin.getSchematicManager();
         Clipboard clipboard = schematicManager.loadSchematic(level);
         
         if (clipboard == null) {
+            LogUtil.logError(plugin, "[Replay] Schematic für Level " + level + " konnte nicht geladen werden!");
             throw new RuntimeException("Schematic für Level " + level + " konnte nicht geladen werden!");
         }
         
-        // Paste Schematic (mit Bedrock-Layer)
-        schematicManager.pasteSchematicWithBedrock(plugin, baseLocation, level);
+        LogUtil.logInfo(plugin, "[Replay] Schematic geladen, starte Paste...");
         
-        LogUtil.logInfo(plugin, "[Replay] Verteidiger-Dorf (Level " + level + ") gespawnt");
+        // Paste Schematic synchron (WorldEdit erfordert das)
+        // WICHTIG: Dies blockiert den Server-Thread, aber ist notwendig für WorldEdit
+        // Das wird bereits in einem async CompletableFuture aufgerufen, 
+        // daher blockiert es nicht den Haupt-Thread
+        try {
+            schematicManager.pasteSchematicWithBedrock(plugin, baseLocation, level);
+            LogUtil.logInfo(plugin, "[Replay] Verteidiger-Dorf (Level " + level + ") gespawnt");
+        } catch (Exception e) {
+            LogUtil.logError(plugin, "[Replay] Fehler beim Spawnen des Dorfes: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Fehler beim Spawnen des Dorfes", e);
+        }
     }
     
     private void teleportViewerToSkyView() {
@@ -129,17 +175,36 @@ public class ReplayInstance {
         viewer.getInventory().clear();
         
         // Slot 0: Exit
-        viewer.getInventory().setItem(0, new ItemStack(Material.RED_BED, 1));
+        ItemStack exit = new ItemStack(Material.RED_BED, 1);
+        org.bukkit.inventory.meta.ItemMeta exitMeta = exit.getItemMeta();
+        exitMeta.setDisplayName("§c§lReplay beenden");
+        exitMeta.setLore(List.of("§7Klicken um das Replay zu verlassen"));
+        exit.setItemMeta(exitMeta);
+        viewer.getInventory().setItem(0, exit);
         
         // Slot 2-6: Speed-Control
-        viewer.getInventory().setItem(2, new ItemStack(Material.FEATHER, 1)); // 0.5x
-        viewer.getInventory().setItem(3, new ItemStack(Material.PAPER, 1));   // 1x (Default)
-        viewer.getInventory().setItem(4, new ItemStack(Material.SUGAR, 2));   // 2x
-        viewer.getInventory().setItem(5, new ItemStack(Material.SUGAR, 4));   // 4x
-        viewer.getInventory().setItem(6, new ItemStack(Material.SUGAR, 8));   // 8x
+        createSpeedItem(viewer, 2, Material.FEATHER, "§70.5x", 0.5f, "§7Langsame Wiedergabe");
+        createSpeedItem(viewer, 3, Material.PAPER, "§f1x (Normal)", 1.0f, "§7Normale Geschwindigkeit");
+        createSpeedItem(viewer, 4, Material.SUGAR, "§a2x", 2.0f, "§7Doppelte Geschwindigkeit");
+        createSpeedItem(viewer, 5, Material.SUGAR, "§a4x", 4.0f, "§7Vierfache Geschwindigkeit");
+        createSpeedItem(viewer, 6, Material.SUGAR, "§a8x", 8.0f, "§7Achtfache Geschwindigkeit");
         
         // Slot 8: Camera-Toggle
-        viewer.getInventory().setItem(8, new ItemStack(Material.ENDER_EYE, 1)); // Free/Follow
+        ItemStack camera = new ItemStack(Material.ENDER_EYE, 1);
+        org.bukkit.inventory.meta.ItemMeta cameraMeta = camera.getItemMeta();
+        cameraMeta.setDisplayName("§b§lKamera: §fFrei");
+        cameraMeta.setLore(List.of("§7Klicken um dem NPC zu folgen"));
+        camera.setItemMeta(cameraMeta);
+        viewer.getInventory().setItem(8, camera);
+    }
+    
+    private void createSpeedItem(Player viewer, int slot, Material material, String name, float speed, String lore) {
+        ItemStack item = new ItemStack(material, 1);
+        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName("§e§lGeschwindigkeit: " + name);
+        meta.setLore(List.of(lore));
+        item.setItemMeta(meta);
+        viewer.getInventory().setItem(slot, item);
     }
     
     /**
@@ -188,15 +253,24 @@ public class ReplayInstance {
                         SchematicManager schematicManager = plugin.getSchematicManager();
                         Clipboard clipboard = schematicManager.loadSchematic(level);
                         
-                        if (clipboard == null) return;
+                        if (clipboard == null) {
+                            LogUtil.logError(plugin, "[Replay] Clipboard ist null beim Löschen der Schematic");
+                            return;
+                        }
                         
                         World world = baseLocation.getWorld();
-                        if (world == null) return;
+                        if (world == null) {
+                            LogUtil.logError(plugin, "[Replay] World ist null beim Löschen der Schematic");
+                            return;
+                        }
                         
                         BlockVector3 min = clipboard.getMinimumPoint();
                         BlockVector3 max = clipboard.getMaximumPoint();
                         
+                        LogUtil.logInfo(plugin, "[Replay] Lösche Dorf-Schematic von " + min + " bis " + max);
+                        
                         // Lösche alle Blöcke
+                        int blocksDeleted = 0;
                         for (int x = min.getX(); x <= max.getX(); x++) {
                             for (int y = min.getY() - 1; y <= max.getY(); y++) {
                                 for (int z = min.getZ(); z <= max.getZ(); z++) {
@@ -206,13 +280,17 @@ public class ReplayInstance {
                                     
                                     Location loc = baseLocation.clone().add(relX, relY, relZ);
                                     loc.getBlock().setType(Material.AIR);
+                                    blocksDeleted++;
                                 }
                             }
                         }
+                        
+                        LogUtil.logInfo(plugin, "[Replay] Dorf-Schematic gelöscht: " + blocksDeleted + " Blöcke entfernt");
                     });
                 });
         } catch (Exception e) {
             LogUtil.logError(plugin, "[Replay] Fehler beim Löschen der Schematic: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

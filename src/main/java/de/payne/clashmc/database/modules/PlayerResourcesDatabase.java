@@ -7,13 +7,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import de.payne.clashmc.ClashMC;
+import de.payne.clashmc.database.DatabaseManager;
 import de.payne.clashmc.database.core.AsyncDatabaseModule;
 import de.payne.clashmc.economy.PlayerResources;
 
 public class PlayerResourcesDatabase extends AsyncDatabaseModule {
 
-    public PlayerResourcesDatabase(Connection connection) {
-        super(connection);
+    public PlayerResourcesDatabase(DatabaseManager databaseManager) {
+        super(databaseManager);
     }
     
     // ========== SYNCHRONE METHODEN (für Legacy-Code) ==========

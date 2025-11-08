@@ -11,6 +11,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
 import de.payne.clashmc.ClashMC;
+import de.payne.clashmc.database.DatabaseManager;
 import de.payne.clashmc.utils.LogUtil;
 
 /**
@@ -21,8 +22,8 @@ public abstract class AsyncDatabaseModule extends DatabaseModule {
 
     protected final Plugin plugin;
 
-    public AsyncDatabaseModule(Connection connection) {
-        super(connection);
+    public AsyncDatabaseModule(DatabaseManager databaseManager) {
+        super(databaseManager);
         this.plugin = ClashMC.getInstance();
     }
 
@@ -35,7 +36,7 @@ public abstract class AsyncDatabaseModule extends DatabaseModule {
      */
     protected <T> CompletableFuture<T> executeQueryAsync(Function<Connection, T> queryFunction) {
         return CompletableFuture.supplyAsync(() -> {
-            try {
+            try (Connection connection = databaseManager.getConnection()) {
                 return queryFunction.apply(connection);
             } catch (Exception e) {
                 LogUtil.logError(plugin, "Async Query Fehler: " + e.getMessage());
@@ -66,9 +67,11 @@ public abstract class AsyncDatabaseModule extends DatabaseModule {
 
     /**
      * Helper: Führt eine Query aus und gibt ein einzelnes Ergebnis zurück
+     * Holt bei jedem Aufruf eine neue Connection aus dem Pool
      */
     protected <T> T querySingleResult(String sql, Function<ResultSet, T> mapper, T defaultValue, Object... params) throws SQLException {
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement stmt = connection.prepareStatement(sql)) {
             for (int i = 0; i < params.length; i++) {
                 stmt.setObject(i + 1, params[i]);
             }
@@ -95,9 +98,11 @@ public abstract class AsyncDatabaseModule extends DatabaseModule {
 
     /**
      * Helper: Prüft ob ein Eintrag existiert
+     * Holt bei jedem Aufruf eine neue Connection aus dem Pool
      */
     protected boolean exists(String sql, Object... params) throws SQLException {
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement stmt = connection.prepareStatement(sql)) {
             for (int i = 0; i < params.length; i++) {
                 stmt.setObject(i + 1, params[i]);
             }

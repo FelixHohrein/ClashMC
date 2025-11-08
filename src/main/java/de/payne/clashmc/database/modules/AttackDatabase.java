@@ -8,13 +8,14 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import de.payne.clashmc.ClashMC;
+import de.payne.clashmc.database.DatabaseManager;
 import de.payne.clashmc.database.core.AsyncDatabaseModule;
 import de.payne.clashmc.utils.LogUtil;
 
 public class AttackDatabase extends AsyncDatabaseModule {
 
-    public AttackDatabase(Connection connection) {
-        super(connection);
+    public AttackDatabase(DatabaseManager databaseManager) {
+        super(databaseManager);
     }
 
     // ========== SYNCHRONE METHODEN ==========
@@ -67,7 +68,8 @@ public class AttackDatabase extends AsyncDatabaseModule {
     }
 
     public int createAttack(int attackerId, int defenderId, boolean isOnline, double damagePercent, long lootClashCoins, long lootKingCoins) {
-        try (PreparedStatement ps = connection.prepareStatement(
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
                 "INSERT INTO kgmg_attacks (attacker_id, defender_id, is_online, damage_percent, loot_clash_coins, loot_king_coins) VALUES (?, ?, ?, ?, ?, ?)",
                 Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, attackerId);
@@ -141,7 +143,7 @@ public class AttackDatabase extends AsyncDatabaseModule {
                   "ORDER BY a.created_at DESC";
         }
         
-        try {
+        try (Connection connection = databaseManager.getConnection()) {
             if (isAdmin) {
                 try (java.sql.PreparedStatement stmt = connection.prepareStatement(sql)) {
                     try (java.sql.ResultSet rs = stmt.executeQuery()) {
@@ -181,7 +183,8 @@ public class AttackDatabase extends AsyncDatabaseModule {
                      "LEFT JOIN kgmg_attack_replays r ON a.id = r.attack_id " +
                      "WHERE a.id = ?";
         
-        try (java.sql.PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (Connection connection = databaseManager.getConnection();
+             java.sql.PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, attackId);
             try (java.sql.ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
@@ -231,7 +234,8 @@ public class AttackDatabase extends AsyncDatabaseModule {
 
     public List<Integer> getRecentAttackIds(int defenderId, int limit) {
         List<Integer> attacks = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement(
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
                 "SELECT id FROM kgmg_attacks WHERE defender_id = ? ORDER BY created_at DESC LIMIT ?")) {
             ps.setInt(1, defenderId);
             ps.setInt(2, limit);
@@ -263,7 +267,8 @@ public class AttackDatabase extends AsyncDatabaseModule {
     
     public int getOnlineRegisteredPlayerCount() {
         int count = 0;
-        try (PreparedStatement ps = connection.prepareStatement(
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
                 "SELECT king_id FROM kgmg_attack_optin WHERE is_online_enabled = TRUE")) {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
@@ -281,7 +286,8 @@ public class AttackDatabase extends AsyncDatabaseModule {
     
     public List<Integer> getRegisteredOnlinePlayerIds() {
         List<Integer> playerIds = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement(
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
                 "SELECT king_id FROM kgmg_attack_optin WHERE is_online_enabled = TRUE")) {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {

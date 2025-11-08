@@ -6,12 +6,13 @@ import java.sql.Timestamp;
 import java.util.concurrent.CompletableFuture;
 
 import de.payne.clashmc.ClashMC;
+import de.payne.clashmc.database.DatabaseManager;
 import de.payne.clashmc.database.core.AsyncDatabaseModule;
 
 public class VillageDatabase extends AsyncDatabaseModule {
 
-    public VillageDatabase(Connection connection) {
-        super(connection);
+    public VillageDatabase(DatabaseManager databaseManager) {
+        super(databaseManager);
     }
 
     // ========== SYNCHRONE METHODEN (für Legacy-Code) ==========

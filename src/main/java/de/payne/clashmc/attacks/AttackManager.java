@@ -174,6 +174,18 @@ public class AttackManager {
     }
 
     public boolean isInAttack(UUID uuid) {
-        return activeAttacks.containsKey(uuid);
+        // Prüfe ob Spieler Angreifer ist
+        if (activeAttacks.containsKey(uuid)) {
+            return true;
+        }
+        
+        // Prüfe ob Spieler Defender in einer aktiven AttackInstance ist
+        for (AttackInstance instance : activeAttacks.values()) {
+            if (instance.isPlayerInAttack(uuid)) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 }

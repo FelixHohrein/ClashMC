@@ -34,15 +34,23 @@ public class MovementPoint {
     
     /**
      * Erstellt einen MovementPoint aus der aktuellen Spieler-Position.
+     * Speichert Position relativ zur baseLocation.
      */
-    public static MovementPoint fromPlayer(org.bukkit.entity.Player player, long attackStartTime) {
+    public static MovementPoint fromPlayer(org.bukkit.entity.Player player, long attackStartTime, org.bukkit.Location baseLocation) {
         long timestamp = System.currentTimeMillis() - attackStartTime;
+        org.bukkit.Location playerLoc = player.getLocation();
+        
+        // Berechne relative Position zur baseLocation
+        double relX = playerLoc.getX() - baseLocation.getX();
+        double relY = playerLoc.getY() - baseLocation.getY();
+        double relZ = playerLoc.getZ() - baseLocation.getZ();
+        
         return new MovementPoint(
-            player.getLocation().getX(),
-            player.getLocation().getY(),
-            player.getLocation().getZ(),
-            player.getLocation().getYaw(),
-            player.getLocation().getPitch(),
+            relX,
+            relY,
+            relZ,
+            playerLoc.getYaw(),
+            playerLoc.getPitch(),
             timestamp
         );
     }

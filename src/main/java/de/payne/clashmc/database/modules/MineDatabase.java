@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import de.payne.clashmc.database.DatabaseManager;
 import de.payne.clashmc.database.core.AsyncDatabaseModule;
 import de.payne.clashmc.mine.MineBoosterType;
 import de.payne.clashmc.mine.MineMaterialType;
@@ -18,8 +19,8 @@ import de.payne.clashmc.utils.LogUtil;
 
 public class MineDatabase extends AsyncDatabaseModule {
 
-    public MineDatabase(Connection connection) {
-        super(connection);
+    public MineDatabase(DatabaseManager databaseManager) {
+        super(databaseManager);
     }
 
     // ========== SYNCHRONE METHODEN ==========
@@ -41,7 +42,8 @@ public class MineDatabase extends AsyncDatabaseModule {
 
         // === clashmc_mine_rewards ===
         String sqlCheckRewards = "SELECT 1 FROM clashmc_mine_rewards WHERE king_id = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sqlCheckRewards)) {
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement stmt = connection.prepareStatement(sqlCheckRewards)) {
             stmt.setInt(1, kingId);
             ResultSet rs = stmt.executeQuery();
             if (!rs.next()) {
@@ -209,7 +211,8 @@ public class MineDatabase extends AsyncDatabaseModule {
     public Map<MineMaterialType, Integer> getAllItems(int kingId) {
         Map<MineMaterialType, Integer> items = new HashMap<>();
         String sql = "SELECT material, amount FROM clashmc_mine_rewards WHERE king_id = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, kingId);
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {

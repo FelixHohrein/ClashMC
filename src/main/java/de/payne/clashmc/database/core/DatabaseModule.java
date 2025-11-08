@@ -4,12 +4,15 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-import lombok.RequiredArgsConstructor;
+import de.payne.clashmc.database.DatabaseManager;
 
-@RequiredArgsConstructor
 public abstract class DatabaseModule {
 
-    protected final Connection connection;
+    protected final DatabaseManager databaseManager;
+
+    public DatabaseModule(DatabaseManager databaseManager) {
+        this.databaseManager = databaseManager;
+    }
 
     protected void close(AutoCloseable... closeables) {
         for (AutoCloseable c : closeables) {
@@ -24,8 +27,10 @@ public abstract class DatabaseModule {
     }
 
     // Optional: Hilfsmethode zum Ausführen einfacher Updates
+    // Holt bei jedem Aufruf eine neue Connection aus dem Pool
     protected void executeUpdate(String sql, Object... params) throws SQLException {
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement stmt = connection.prepareStatement(sql)) {
             for (int i = 0; i < params.length; i++) {
                 stmt.setObject(i + 1, params[i]);
             }

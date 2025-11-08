@@ -13,9 +13,7 @@ public class LogUtil {
     }
 
     public static void logDebug(Plugin plugin, String message) {
-        // Optional: nur im Dev-Modus loggen
-        if (plugin.getConfig().getBoolean("debug", false)) {
-            plugin.getLogger().info("[DEBUG] " + message);
-        }
+        // Immer loggen (auch wenn debug=false ist, für Replay-System wichtig)
+        plugin.getLogger().info("[DEBUG] " + message);
     }
 }

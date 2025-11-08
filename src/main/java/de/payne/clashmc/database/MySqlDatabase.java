@@ -51,7 +51,7 @@ public class MySqlDatabase extends DatabaseHandler {
             config.setConnectionTimeout(30000); // 30 Sekunden Timeout
             config.setIdleTimeout(600000); // 10 Minuten idle timeout
             config.setMaxLifetime(1800000); // 30 Minuten max lifetime
-            config.setLeakDetectionThreshold(60000); // 60 Sekunden leak detection
+            config.setLeakDetectionThreshold(300000); // 5 Minuten leak detection (erhöht, da DatabaseModule Connections halten)
             
             // Connection Pool Settings
             config.setPoolName("ClashMC-HikariPool");
@@ -71,8 +71,10 @@ public class MySqlDatabase extends DatabaseHandler {
             this.plugin.getLogger().info("  -> Max Pool Size: " + config.getMaximumPoolSize());
             this.plugin.getLogger().info("  -> Min Idle: " + config.getMinimumIdle());
 
-            // Führe Migrations aus
-            new MigrationManager(getConnection(), this.plugin.getLogger()).migrate();
+            // Führe Migrations aus (Connection wird automatisch geschlossen)
+            try (Connection migrationConnection = getConnection()) {
+                new MigrationManager(migrationConnection, this.plugin.getLogger()).migrate();
+            }
 
         } catch (SQLException e) {
             this.plugin.getLogger().severe("Fehler beim Initialisieren des Connection Pools: " + e.getMessage());
@@ -124,7 +126,12 @@ public class MySqlDatabase extends DatabaseHandler {
      */
     public Connection getConnection() throws SQLException {
         if (!isConnected()) {
-            throw new SQLException("Connection Pool ist nicht initialisiert oder wurde geschlossen!");
+            // Versuche Connection Pool neu zu initialisieren falls geschlossen
+            plugin.getLogger().warning("Connection Pool ist geschlossen, versuche neu zu initialisieren...");
+            openConnection();
+            if (!isConnected()) {
+                throw new SQLException("Connection Pool konnte nicht neu initialisiert werden!");
+            }
         }
         return dataSource.getConnection();
     }

@@ -11,13 +11,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import de.payne.clashmc.ClashMC;
+import de.payne.clashmc.database.DatabaseManager;
 import de.payne.clashmc.database.core.AsyncDatabaseModule;
 import de.payne.clashmc.utils.LogUtil;
 
 public class PlayerDatabase extends AsyncDatabaseModule {
 
-    public PlayerDatabase(Connection connection) {
-        super(connection);
+    public PlayerDatabase(DatabaseManager databaseManager) {
+        super(databaseManager);
     }
 
     // ========== SYNCHRONE METHODEN (für Legacy-Code) ==========
@@ -90,7 +91,8 @@ public class PlayerDatabase extends AsyncDatabaseModule {
     
     public List<Integer> getAllPlayerIds() {
         List<Integer> playerIds = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT id FROM kgmg_players")) {
+        try (Connection connection = databaseManager.getConnection();
+             PreparedStatement ps = connection.prepareStatement("SELECT id FROM kgmg_players")) {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 playerIds.add(rs.getInt("id"));

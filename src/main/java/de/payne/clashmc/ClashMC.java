@@ -32,6 +32,7 @@ import de.payne.clashmc.listeners.player.MineEnterListener;
 import de.payne.clashmc.listeners.player.MineLeaveListener;
 import de.payne.clashmc.listeners.player.MineRewardClickListener;
 import de.payne.clashmc.listeners.player.PlayerInteractListener;
+import de.payne.clashmc.listeners.player.PlayerDeathListener;
 import de.payne.clashmc.listeners.player.PlayerJoinListener;
 import de.payne.clashmc.listeners.player.PlayerLeaveListener;
 import de.payne.clashmc.listeners.player.ShopClickListener;
@@ -90,14 +91,15 @@ public class ClashMC extends JavaPlugin {
 		getLogger().info("ClashMC wird geladen...");
 		getLogger().info("===========================================");
 		
-		this.database = new MySqlDatabase(this);
+        this.database = new MySqlDatabase(this);
         this.database.openConnection();
         this.database.keepAlive();
         
         this.databaseManager = new DatabaseManager(this.database);
         
-        try {
-            this.migrationManager = new MigrationManager(this.databaseManager.getConnection(), this.getLogger());
+        // Migrations mit try-with-resources (Connection wird automatisch geschlossen)
+        try (java.sql.Connection connection = this.databaseManager.getConnection()) {
+            this.migrationManager = new MigrationManager(connection, this.getLogger());
             if(this.database.isConnected()) {
                 this.migrationManager.migrate();
             } else {
@@ -158,6 +160,8 @@ public class ClashMC extends JavaPlugin {
 		 this.getServer().getPluginManager().registerEvents(new MineEnterListener(), this); // Block Interact Mine
 		 this.getServer().getPluginManager().registerEvents(new AttackMenuClickListener(this, this.attackManager), this); // Attack GIU
 		 this.getServer().getPluginManager().registerEvents(new AttackBlockBreakListener(), this);
+		 this.getServer().getPluginManager().registerEvents(new PlayerDeathListener(this), this); // Player Death während Angriffen
+		 this.getServer().getPluginManager().registerEvents(new de.payne.clashmc.listeners.player.AttackCombatListener(), this); // Combat-Tracking während Angriffen
 		 this.getServer().getPluginManager().registerEvents(new de.payne.clashmc.listeners.player.ReplayListClickListener(), this); // Replay List GUI
 		 this.getServer().getPluginManager().registerEvents(new de.payne.clashmc.listeners.player.ReplayControlsListener(), this); // Replay Controls
 	}

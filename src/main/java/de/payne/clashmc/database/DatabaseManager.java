@@ -18,16 +18,13 @@ public class DatabaseManager {
     public DatabaseManager(MySqlDatabase database) {
         this.database = database;
         
-        try {
-            Connection connection = database.getConnection();
-            this.playerDB = new PlayerDatabase(connection);
-            this.villageDB = new VillageDatabase(connection);
-            this.resourcesDB = new PlayerResourcesDatabase(connection);
-            this.mineDatabase = new MineDatabase(connection);
-            this.attackDatabase = new AttackDatabase(connection);
-        } catch (SQLException e) {
-            throw new RuntimeException("Fehler beim Initialisieren des DatabaseManagers: " + e.getMessage(), e);
-        }
+        // DatabaseModule-Klassen werden mit DatabaseManager initialisiert
+        // Sie holen sich bei jedem Aufruf eine neue Connection aus dem Pool
+        this.playerDB = new PlayerDatabase(this);
+        this.villageDB = new VillageDatabase(this);
+        this.resourcesDB = new PlayerResourcesDatabase(this);
+        this.mineDatabase = new MineDatabase(this);
+        this.attackDatabase = new AttackDatabase(this);
     }
     
     /**
