@@ -113,7 +113,28 @@ public class SchematicManager {
             Clipboard clipboard = reader.read();
             World adaptedWorld = BukkitAdapter.adapt(location.getWorld());
 
+            // PERFORMANCE: Chunks vorladen um Blockierungen zu reduzieren
+            org.bukkit.World bukkitWorld = location.getWorld();
+            if (bukkitWorld != null) {
+                BlockVector3 dimensions = clipboard.getDimensions();
+                int chunkRadiusX = (int) Math.ceil(dimensions.getX() / 16.0) + 1;
+                int chunkRadiusZ = (int) Math.ceil(dimensions.getZ() / 16.0) + 1;
+                
+                int chunkX = location.getBlockX() >> 4;
+                int chunkZ = location.getBlockZ() >> 4;
+                
+                // Lade Chunks synchron VOR dem Schematic-Paste
+                for (int dx = -chunkRadiusX; dx <= chunkRadiusX; dx++) {
+                    for (int dz = -chunkRadiusZ; dz <= chunkRadiusZ; dz++) {
+                        bukkitWorld.loadChunk(chunkX + dx, chunkZ + dz, true);
+                    }
+                }
+            }
+
             try (EditSession editSession = WorldEdit.getInstance().newEditSession(adaptedWorld)) {
+                // PERFORMANCE: FastMode aktivieren - deaktiviert Block-Updates während des Pastes
+                editSession.setFastMode(true);
+                
                 Operation operation = new ClipboardHolder(clipboard)
                         .createPaste(editSession)
                         .to(BlockVector3.at(location.getBlockX(), location.getBlockY(), location.getBlockZ()))
@@ -163,7 +184,27 @@ public class SchematicManager {
 
             int bedrockY = pasteY - 1;
 
+            // PERFORMANCE: Chunks vorladen (asynchron) um Blockierungen zu reduzieren
+            org.bukkit.World bukkitWorld = location.getWorld();
+            if (bukkitWorld != null) {
+                int chunkRadiusX = (int) Math.ceil(width / 16.0) + 1;
+                int chunkRadiusZ = (int) Math.ceil(length / 16.0) + 1;
+                
+                int chunkX = pasteX >> 4;
+                int chunkZ = pasteZ >> 4;
+                
+                // Lade Chunks synchron VOR dem Schematic-Paste
+                for (int dx = -chunkRadiusX; dx <= chunkRadiusX; dx++) {
+                    for (int dz = -chunkRadiusZ; dz <= chunkRadiusZ; dz++) {
+                        bukkitWorld.loadChunk(chunkX + dx, chunkZ + dz, true);
+                    }
+                }
+            }
+
             try (EditSession editSession = WorldEdit.getInstance().newEditSession(adaptedWorld)) {
+                // PERFORMANCE: FastMode aktivieren - deaktiviert Block-Updates während des Pastes
+                // Das reduziert die Blockierung des Server-Threads erheblich
+                editSession.setFastMode(true);
 
                 // ✅ Bedrock-Schicht unterhalb des Schematics setzen
                 for (int x = 0; x < width; x++) {
